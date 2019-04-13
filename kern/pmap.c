@@ -108,7 +108,7 @@ boot_alloc(uint32_t n)
 	result = nextfree;
 	nextfree = ROUNDUP((char *) (result + n), PGSIZE);
 
-	if (nextfree >= (char *) (npages * PGSIZE)) {
+	if (nextfree >= (char *) (KERNBASE + npages * PGSIZE)) {
 		panic("boot_alloc: Couldn't allocate pages of contiguous physical memory to hold %d bytes", n);
 	}
 
@@ -134,7 +134,7 @@ mem_init(void)
 	i386_detect_memory();
 
 	// Remove this line when you're ready to test this function.
-	panic("mem_init: This function is not finished\n");
+	// panic("mem_init: This function is not finished\n");
 
 	//////////////////////////////////////////////////////////////////////
 	// create initial page directory.
