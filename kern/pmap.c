@@ -106,9 +106,10 @@ boot_alloc(uint32_t n)
 	// to a multiple of PGSIZE.
 	//
 	// LAB 2: Your code here.
-	result = ROUNDUP((char *) nextfree + n, PGSIZE);
+	result = nextfree;
+	nextfree = ROUNDUP((char *)result + n, PGSIZE);
 
-	if (result >= (char *) (KERNBASE + npages * PGSIZE)) {
+	if (nextfree >= (char *) (KERNBASE + npages * PGSIZE)) {
 		panic("boot_alloc: couldn't allocate pages of contiguous physical memory to hold %d bytes", n);
 	}
 
