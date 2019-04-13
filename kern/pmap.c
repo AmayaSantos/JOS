@@ -277,6 +277,14 @@ page_init(void)
 	// free pages!
 	size_t i;
 	for (i = 0; i < npages; i++) {
+		physaddr_t physaddr = page2pa(&pages[i]);
+		if (i == 0 ||
+			physaddr >= IOPHYSMEM && physaddr < EXTPHYSMEM ||
+			physaddr >= EXTPHYSMEM && physaddr <= boot_alloc(0)
+			){
+				continue
+		}
+
 		pages[i].pp_ref = 0;
 		pages[i].pp_link = page_free_list;
 		page_free_list = &pages[i];
