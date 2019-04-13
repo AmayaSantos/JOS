@@ -135,7 +135,7 @@ mem_init(void)
 	i386_detect_memory();
 
 	// Remove this line when you're ready to test this function.
-	// panic("mem_init: This function is not finished\n");
+	panic("mem_init: This function is not finished\n");
 
 	//////////////////////////////////////////////////////////////////////
 	// create initial page directory.
@@ -276,7 +276,7 @@ page_init(void)
 	// Change the code to reflect this.
 	// NB: DO NOT actually touch the physical memory corresponding to
 	// free pages!
-    physaddr_t pages_end = PADDR(boot_alloc(0));
+	physaddr_t pages_end = PADDR(boot_alloc(0));
 
 	size_t i;
 	for (i = 0; i < npages; i++) {
