@@ -286,8 +286,17 @@ page_init(void)
 struct PageInfo *
 page_alloc(int alloc_flags)
 {
-	// Fill this function in
-	return 0;
+	if (!page_free_list) {
+		return NULL;
+	}
+
+	struct PageInfo* pp = page_free_list;
+	if (alloc_flags & ALLOC_ZERO) {
+		memset(page2kva(pp), 0, PGSIZE);
+	}
+	page_free_list = pp->pp_link;
+	pp->pp_link = NULL;
+	return pp;
 }
 
 //
