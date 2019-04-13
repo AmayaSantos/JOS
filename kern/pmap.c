@@ -107,10 +107,10 @@ boot_alloc(uint32_t n)
 	//
 	// LAB 2: Your code here.
 	result = nextfree;
-	nextfree = ROUNDUP((char *)result + n, PGSIZE);
+	nextfree = ROUNDUP((char *) (result + n), PGSIZE);
 
-	if (nextfree >= (char *) (KERNBASE + npages * PGSIZE)) {
-		panic("boot_alloc: couldn't allocate pages of contiguous physical memory to hold %d bytes", n);
+	if (nextfree >= (char *) (npages * PGSIZE)) {
+		panic("boot_alloc: Couldn't allocate pages of contiguous physical memory to hold %d bytes", n);
 	}
 
 	return result;
@@ -276,12 +276,14 @@ page_init(void)
 	// Change the code to reflect this.
 	// NB: DO NOT actually touch the physical memory corresponding to
 	// free pages!
+    physaddr_t pages_end = PADDR(boot_alloc(0));
+
 	size_t i;
 	for (i = 0; i < npages; i++) {
 		physaddr_t physaddr = page2pa(&pages[i]);
 		if (i == 0 ||
 			(physaddr >= IOPHYSMEM && physaddr < EXTPHYSMEM) ||
-			(physaddr >= EXTPHYSMEM && physaddr <= PADDR(boot_alloc(0)) )
+			(physaddr >= EXTPHYSMEM && physaddr <= pages_end)
 				){
 			continue;
 		}
