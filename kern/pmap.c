@@ -279,10 +279,10 @@ page_init(void)
 	for (i = 0; i < npages; i++) {
 		physaddr_t physaddr = page2pa(&pages[i]);
 		if (i == 0 ||
-			physaddr >= IOPHYSMEM && physaddr < EXTPHYSMEM ||
-			physaddr >= EXTPHYSMEM && physaddr <= boot_alloc(0)
-			){
-				continue
+			(physaddr >= IOPHYSMEM && physaddr < EXTPHYSMEM) ||
+			(physaddr >= EXTPHYSMEM && physaddr <= PADDR(boot_alloc(0)) )
+				){
+			continue;
 		}
 
 		pages[i].pp_ref = 0;
