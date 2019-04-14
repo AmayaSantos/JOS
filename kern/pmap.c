@@ -484,7 +484,17 @@ page_lookup(pde_t *pgdir, void *va, pte_t **pte_store)
 void
 page_remove(pde_t *pgdir, void *va)
 {
-	// Fill this function in
+	struct PageInfo *pp = page_lookup(pgdir, va, 0);
+
+	if (pp == NULL) return;
+
+	page_decref(pp);
+
+	// No need to validate again since page_lookup already does it.
+	pte_t *pte = pgdir_walk(pgdir, va, 0);
+	*pte = 0;
+
+	tlb_invalidate(pgdir, va);
 }
 
 //
