@@ -330,6 +330,20 @@ page_decref(struct PageInfo *pp)
 		page_free(pp);
 }
 
+int
+create_pgtable(pde_t *pde)
+{
+	struct PageInfo *pp = page_alloc(ALLOC_ZERO);
+
+	if (pp == NULL) return 0;
+
+	pp->pp_ref++;
+	pde_t new_pde = page2pa(pp);
+	*pde = new_pde | PTE_P | PTE_W | PTE_U;
+
+	return 1;
+}
+
 // Given 'pgdir', a pointer to a page directory, pgdir_walk returns
 // a pointer to the page table entry (PTE) for linear address 'va'.
 // This requires walking the two-level page table structure.
@@ -355,8 +369,15 @@ page_decref(struct PageInfo *pp)
 pte_t *
 pgdir_walk(pde_t *pgdir, const void *va, int create)
 {
-	// Fill this function in
-	return NULL;
+	pde_t *pde = pgdir + PDX(va);
+
+	if (!(*pde & PTE_P)) {
+		if (!create || !create_pgtable(pde)) return NULL;
+	}
+
+	pte_t *pgtable = KADDR(PTE_ADDR(*pde));
+
+	return pgtable + PTX(va);
 }
 
 //
