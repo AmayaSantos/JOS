@@ -330,6 +330,20 @@ page_decref(struct PageInfo *pp)
 		page_free(pp);
 }
 
+int
+create_pgtable(pde_t *pde)
+{
+	struct PageInfo *pp = page_alloc(ALLOC_ZERO);
+
+	if (pp == NULL) return 0;
+
+	pp->pp_ref++;
+	pde_t new_pde = page2pa(pp);
+	*pde = new_pde | PTE_P | PTE_W | PTE_U;
+
+	return 1;
+}
+
 // Given 'pgdir', a pointer to a page directory, pgdir_walk returns
 // a pointer to the page table entry (PTE) for linear address 'va'.
 // This requires walking the two-level page table structure.
@@ -355,8 +369,15 @@ page_decref(struct PageInfo *pp)
 pte_t *
 pgdir_walk(pde_t *pgdir, const void *va, int create)
 {
-	// Fill this function in
-	return NULL;
+	pde_t *pde = pgdir + PDX(va);
+
+	if (!(*pde & PTE_P)) {
+		if (!create || !create_pgtable(pde)) return NULL;
+	}
+
+	pte_t *pgtable = KADDR(PTE_ADDR(*pde));
+
+	return pgtable + PTX(va);
 }
 
 //
@@ -404,7 +425,19 @@ boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm
 int
 page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 {
-	// Fill this function in
+	pte_t *pte = pgdir_walk(pgdir, va, 1);
+
+	if (pte == NULL) return -E_NO_MEM;
+
+	// When page_remove()ing, do not page_free() it if pp_ref reaches 0.
+	pp->pp_ref++;
+
+	if (*pte & PTE_P) {
+		page_remove(pgdir, va);
+	}
+
+	*pte = page2pa(pp) | perm | PTE_P;
+
 	return 0;
 }
 
@@ -422,8 +455,15 @@ page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 struct PageInfo *
 page_lookup(pde_t *pgdir, void *va, pte_t **pte_store)
 {
-	// Fill this function in
-	return NULL;
+	pte_t *pte = pgdir_walk(pgdir, va, 0);
+
+	if (!pte || !(*pte | PTE_P)) return NULL;
+
+	if (pte_store != 0) {
+		*pte_store = pte;
+	}
+
+	return pa2page(PTE_ADDR(*pte));
 }
 
 //
@@ -444,7 +484,17 @@ page_lookup(pde_t *pgdir, void *va, pte_t **pte_store)
 void
 page_remove(pde_t *pgdir, void *va)
 {
-	// Fill this function in
+	struct PageInfo *pp = page_lookup(pgdir, va, 0);
+
+	if (pp == NULL) return;
+
+	page_decref(pp);
+
+	// No need to validate again since page_lookup already does it.
+	pte_t *pte = pgdir_walk(pgdir, va, 0);
+	*pte = 0;
+
+	tlb_invalidate(pgdir, va);
 }
 
 //
