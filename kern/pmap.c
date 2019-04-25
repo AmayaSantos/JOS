@@ -411,7 +411,6 @@ boot_map_region_page_by_page(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t
 static int
 is_aligned_to_22_bits(uintptr_t va)
 {
-
 	uintptr_t aligned_va = ROUNDUP((uintptr_t) va, PTSIZE);
 	return va == aligned_va;
 }
@@ -419,7 +418,6 @@ is_aligned_to_22_bits(uintptr_t va)
 static int
 should_use_large_pages(uintptr_t va, size_t size)
 {
-
 	return is_aligned_to_22_bits(va) &&
 		size >= PTSIZE;
 }
@@ -427,7 +425,6 @@ should_use_large_pages(uintptr_t va, size_t size)
 static void
 boot_map_region_with_large_page(pde_t *pgdir, uintptr_t va, physaddr_t pa, int perm)
 {
-
 	pde_t *pde = pgdir + PDX(va);
 	*pde = pa | perm | PTE_P | PTE_PS;
 }
@@ -444,8 +441,8 @@ boot_map_region_with_large_page(pde_t *pgdir, uintptr_t va, physaddr_t pa, int p
 //
 // Hint: the TA solution uses pgdir_walk
 static void
-boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm) {
-
+boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm)
+{
 #ifndef TP1_PSE
 	boot_map_region_page_by_page(pgdir, va, size, pa, perm);
 #else
