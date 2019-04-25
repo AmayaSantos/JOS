@@ -397,6 +397,41 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
 	return pgtable + PTX(va);
 }
 
+// boot_map_region auxiliary functions.
+static void
+boot_map_region_page_by_page(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm)
+{
+
+	for (int i = 0; i < size; i += PGSIZE) {
+		pte_t *pte = pgdir_walk(pgdir, (void *) va + i, 1);
+		*pte = (pa + i) | perm | PTE_P;
+	}
+}
+
+static int
+is_aligned_to_22_bits(uintptr_t va)
+{
+
+	uintptr_t aligned_va = ROUNDUP((uintptr_t) va, PTSIZE);
+	return va == aligned_va;
+}
+
+static int
+should_use_large_pages(uintptr_t va, size_t size)
+{
+
+	return is_aligned_to_22_bits(va) &&
+		size >= PTSIZE;
+}
+
+static void
+boot_map_region_with_large_page(pde_t *pgdir, uintptr_t va, physaddr_t pa, int perm)
+{
+
+	pde_t *pde = pgdir + PDX(va);
+	*pde = pa | perm | PTE_P | PTE_PS;
+}
+
 //
 // Map [va, va+size) of virtual address space to physical [pa, pa+size)
 // in the page table rooted at pgdir.  Size is a multiple of PGSIZE, and
@@ -409,13 +444,22 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
 //
 // Hint: the TA solution uses pgdir_walk
 static void
-boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm)
-{
+boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm) {
 
-	for (int i = 0; i < size; i+=PGSIZE) {
-		pte_t *pte = pgdir_walk(pgdir, (void *) va+i, 1);
-		*pte = (pa+i) | perm | PTE_P;
+#ifndef TP1_PSE
+	boot_map_region_page_by_page(pgdir, va, size, pa, perm);
+#else
+	if (!should_use_large_pages(va, size)) {
+		boot_map_region_page_by_page(pgdir, va, size, pa, perm);
 	}
+
+	size_t offset = 0;
+
+	while (offset < size) {
+		boot_map_region_with_large_page(pgdir, va + offset, pa + offset, perm);
+		offset += PTSIZE;
+	}
+#endif
 }
 
 //
