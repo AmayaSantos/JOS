@@ -335,7 +335,7 @@ $(OBJDIR)/.deps: $(foreach dir, $(OBJDIRS), $(wildcard $(OBJDIR)/$(dir)/*.d))
 always:
 	@:
 
-%_informe: %_informe.md
+informe: README.md
 	pandoc -s -o $@.pdf $< --latex-engine=xelatex
 
 .PHONY: format
