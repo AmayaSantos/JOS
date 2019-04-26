@@ -349,7 +349,7 @@ create_pgtable(pde_t *pde)
 {
 	struct PageInfo *pp = page_alloc(ALLOC_ZERO);
 
-	if (!pp) return 0;
+	if (pp == NULL) return 0;
 
 	pp->pp_ref++;
 	pde_t new_pde = page2pa(pp);
@@ -396,30 +396,18 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
 static void
 boot_map_region_page_by_page(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm)
 {
-	for (int i = 0; i < size; i += PGSIZE) {
-		pte_t *pte = pgdir_walk(pgdir, (void *) va + i, 1);
-		*pte = (pa + i) | perm | PTE_P;
+	for (int offset = 0; offset < size; offset += PGSIZE) {
+		pte_t *pte = pgdir_walk(pgdir, (void *) va + offset, 1);
+		*pte = (pa + offset	) | perm | PTE_P;
 	}
 }
-
-static int
-is_aligned_to_22_bits(uintptr_t va)
-{
-	return va % PTSIZE == 0;
-}
-
-static int
-should_use_large_pages(uintptr_t va, size_t size)
-{
-	return is_aligned_to_22_bits(va) &&
-		size >= PTSIZE;
-}
-
 static void
-boot_map_region_with_large_page(pde_t *pgdir, uintptr_t va, physaddr_t pa, int perm)
+boot_map_region_with_large_page(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm)
 {
-	pde_t *pde = pgdir + PDX(va);
-	*pde = pa | perm | PTE_P | PTE_PS;
+	for (size_t offset = 0; offset <= size; offset += PTSIZE) {
+		pde_t *pde = pgdir + PDX(va+offset);
+		*pde = (pa+offset) | perm | PTE_P | PTE_PS;
+	}
 }
 
 //
@@ -433,20 +421,21 @@ boot_map_region_with_large_page(pde_t *pgdir, uintptr_t va, physaddr_t pa, int p
 // mapped pages.
 //
 // Hint: the TA solution uses pgdir_walk
+//
+// The function is divided in two: either the 'normal' way, mapping page by page, or when appropiate, mapping to large pages
 static void
 boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm)
 {
 #ifndef TP1_PSE
 	boot_map_region_page_by_page(pgdir, va, size, pa, perm);
 #else
-	if (!should_use_large_pages(va, size)) {
+	// large pages should only be used with 22 bit aligned addresses greater than the page table size
+	if (!(va % PTSIZE == 0) && (size >= PTSIZE)) {
 		boot_map_region_page_by_page(pgdir, va, size, pa, perm);
 		return;
 	}
 
-	for (size_t offset = 0; offset <= size; offset += PTSIZE) {
-		boot_map_region_with_large_page(pgdir, va + offset, pa + offset, perm);
-	}
+	boot_map_region_with_large_page(pgdir, va, size, pa, perm);
 #endif
 }
 
@@ -479,7 +468,6 @@ int
 page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 {
 	pte_t *pte = pgdir_walk(pgdir, va, 1);
-
 	if (pte == NULL) return -E_NO_MEM;
 
 	// When page_remove()ing, do not page_free() it if pp_ref reaches 0.
@@ -490,7 +478,6 @@ page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 	}
 
 	*pte = page2pa(pp) | perm | PTE_P;
-
 	return 0;
 }
 
@@ -509,13 +496,11 @@ struct PageInfo *
 page_lookup(pde_t *pgdir, void *va, pte_t **pte_store)
 {
 	pte_t *pte = pgdir_walk(pgdir, va, 0);
-
-	if (!pte || !(*pte | PTE_P)) return NULL;
+	if (pte == NULL || !(*pte | PTE_P)) return NULL;
 
 	if (pte_store != 0) {
 		*pte_store = pte;
 	}
-
 	return pa2page(PTE_ADDR(*pte));
 }
 
@@ -538,7 +523,6 @@ void
 page_remove(pde_t *pgdir, void *va)
 {
 	struct PageInfo *pp = page_lookup(pgdir, va, 0);
-
 	if (pp == NULL) return;
 
 	page_decref(pp);
@@ -546,7 +530,6 @@ page_remove(pde_t *pgdir, void *va)
 	// No need to validate again since page_lookup already does it.
 	pte_t *pte = pgdir_walk(pgdir, va, 0);
 	*pte = 0;
-
 	tlb_invalidate(pgdir, va);
 }
 
