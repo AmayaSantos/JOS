@@ -398,8 +398,7 @@ boot_map_region_page_by_page(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t
 static int
 is_aligned_to_22_bits(uintptr_t va)
 {
-	uintptr_t aligned_va = ROUNDUP((uintptr_t) va, PTSIZE);
-	return va == aligned_va;
+	return va % PTSIZE == 0;
 }
 
 static int
@@ -435,13 +434,11 @@ boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm
 #else
 	if (!should_use_large_pages(va, size)) {
 		boot_map_region_page_by_page(pgdir, va, size, pa, perm);
+		return;
 	}
 
-	size_t offset = 0;
-
-	while (offset < size) {
+	for (size_t offset = 0; offset <= size; offset += PTSIZE) {
 		boot_map_region_with_large_page(pgdir, va + offset, pa + offset, perm);
-		offset += PTSIZE;
 	}
 #endif
 }
