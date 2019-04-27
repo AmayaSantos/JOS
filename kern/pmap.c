@@ -398,15 +398,15 @@ boot_map_region_page_by_page(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t
 {
 	for (int offset = 0; offset < size; offset += PGSIZE) {
 		pte_t *pte = pgdir_walk(pgdir, (void *) va + offset, 1);
-		*pte = (pa + offset	) | perm | PTE_P;
+		*pte = (pa + offset) | perm | PTE_P;
 	}
 }
 static void
 boot_map_region_with_large_page(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm)
 {
 	for (size_t offset = 0; offset <= size; offset += PTSIZE) {
-		pde_t *pde = pgdir + PDX(va+offset);
-		*pde = (pa+offset) | perm | PTE_P | PTE_PS;
+		pde_t *pde = pgdir + PDX(va + offset);
+		*pde = (pa + offset) | perm | PTE_P | PTE_PS;
 	}
 }
 
@@ -430,7 +430,7 @@ boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm
 	boot_map_region_page_by_page(pgdir, va, size, pa, perm);
 #else
 	// large pages should only be used with 22 bit aligned addresses greater than the page table size
-	if (!(va % PTSIZE == 0) && (size >= PTSIZE)) {
+	if (!((va % PTSIZE == 0) && (size >= PTSIZE))) {
 		boot_map_region_page_by_page(pgdir, va, size, pa, perm);
 		return;
 	}
