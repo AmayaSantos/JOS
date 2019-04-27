@@ -344,18 +344,22 @@ page_decref(struct PageInfo *pp)
 		page_free(pp);
 }
 
-int
+//
+// Given a page directory entry, creates a new zeroed page table in there, with page_alloc.
+// Used by pgdir_walk.
+//
+bool
 create_pgtable(pde_t *pde)
 {
 	struct PageInfo *pp = page_alloc(ALLOC_ZERO);
 
-	if (pp == NULL) return 0;
+	if (pp == NULL) return false;
 
 	pp->pp_ref++;
 	pde_t new_pde = page2pa(pp);
 	*pde = new_pde | PTE_P | PTE_W | PTE_U;
 
-	return 1;
+	return true;
 }
 
 // Given 'pgdir', a pointer to a page directory, pgdir_walk returns
@@ -384,9 +388,7 @@ pte_t *
 pgdir_walk(pde_t *pgdir, const void *va, int create)
 {
 	pde_t *pde = pgdir + PDX(va);
-	if (!(*pde & PTE_P)) {
-		if (!create || !create_pgtable(pde)) return NULL;
-	}
+	if (!(*pde & PTE_P) && (!create || !create_pgtable(pde))) return NULL;
 
 	pte_t *pgtable = KADDR(PTE_ADDR(*pde));
 	return pgtable + PTX(va);
