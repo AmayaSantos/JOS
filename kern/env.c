@@ -289,7 +289,7 @@ region_alloc(struct Env *e, void *va, size_t len)
 			panic("region_alloc: %s", -E_NO_MEM);
 
 		if (page_insert(e->env_pgdir, p, va, PTE_W | PTE_U) < 0)
-			panic("region_alloc: failed to insert page in pgdir");
+			panic("region_alloc: failed to insert page in environment pgdir");
 
 	}
 }
@@ -319,40 +319,77 @@ region_alloc(struct Env *e, void *va, size_t len)
 static void
 load_icode(struct Env *e, uint8_t *binary)
 {
-	// Hints:
+	// LAB 3: Your code here.
+	struct Elf *elf = (struct Elf *) binary;
+	if (elf->e_magic != ELF_MAGIC)
+		panic("load_icode: binary isn't ELF");
+
+	//  Loading the segments is much simpler if you can move data
+	//  directly into the virtual addresses stored in the ELF binary.
+	//  So which page directory should be in force during
+	//  this function?
+	//
+	//  Don't forget to go back to kern_pgdir!
+	lcr3(PADDR(e->env_pgdir));
+
 	//  Load each program segment into virtual memory
 	//  at the address specified in the ELF section header.
-	//  You should only load segments with ph->p_type == ELF_PROG_LOAD.
-	//  Each segment's virtual address can be found in ph->p_va
-	//  and its size in memory can be found in ph->p_memsz.
-	//  The ph->p_filesz bytes from the ELF binary, starting at
-	//  'binary + ph->p_offset', should be copied to virtual address
-	//  ph->p_va.  Any remaining memory bytes should be cleared to zero.
-	//  (The ELF header should have ph->p_filesz <= ph->p_memsz.)
 	//  Use functions from the previous lab to allocate and map pages.
+	struct Proghdr *ph, *eph;
+	ph = (struct Proghdr *) binary + elf->e_phoff;
+	eph = ph + elf->e_phnum;
+
+	for (; ph < eph; ph++) {
+		void* p_va = (void *) ph->p_va;
+
+		//  You should only load segments with ph->p_type == ELF_PROG_LOAD.
+		if (ph->p_type != ELF_PROG_LOAD) {
+			continue;
+		}
+
+		//  (The ELF header should have ph->p_filesz <= ph->p_memsz.)
+		if (ph->p_filesz > ph->p_memsz) {
+			panic("load_icode: binary has memsz < filesz");
+		}
+
+		//  Each segment's virtual address can be found in ph->p_va
+		//  and its size in memory can be found in ph->p_memsz.
+		//  You may find a function like region_alloc useful.
+		region_alloc(e, p_va, ph->p_memsz);
+
+		//  The ph->p_filesz bytes from the ELF binary, starting at
+		//  'binary + ph->p_offset', should be copied to virtual address
+		//  ph->p_va.  Any remaining memory bytes should be cleared to zero.
+		//
+		//  First clear memsz bytes to zero, then overwrite with the filesz bytes instead of the other way around. Saves a step (or the arithmetic at least)!
+		memset(p_va, 0, ph->p_memsz);
+		memcpy(p_va, binary + ph->p_offset, ph->p_filesz);
+	}
+
+	//  You must also do something with the program's entry point,
+	//  to make sure that the environment starts executing there.
+	//  What?  (See env_run() and env_pop_tf() below.)
+	e->env_tf.tf_eip = elf->e_entry;
+
+	//  Now map one page for the program's initial stack
+	//  at virtual address USTACKTOP - PGSIZE.
 	//
 	//  All page protection bits should be user read/write for now.
 	//  ELF segments are not necessarily page-aligned, but you can
 	//  assume for this function that no two segments will touch
 	//  the same virtual page.
 	//
-	//  You may find a function like region_alloc useful.
-	//
-	//  Loading the segments is much simpler if you can move data
-	//  directly into the virtual addresses stored in the ELF binary.
-	//  So which page directory should be in force during
-	//  this function?
-	//
-	//  You must also do something with the program's entry point,
-	//  to make sure that the environment starts executing there.
-	//  What?  (See env_run() and env_pop_tf() below.)
-
 	// LAB 3: Your code here.
+	struct PageInfo *p = NULL;
+	if (!(p = page_alloc(ALLOC_ZERO)))
+		panic("load_icode: %s", -E_NO_MEM);
 
-	// Now map one page for the program's initial stack
-	// at virtual address USTACKTOP - PGSIZE.
+	void* va = (void *) (USTACKTOP - PGSIZE);
+	if (page_insert(e->env_pgdir, p, va, PTE_W | PTE_U) < 0)
+		panic("load_icode: failed to insert page in environment pgdir");
 
-	// LAB 3: Your code here.
+	// Restore the pgdir.
+	lcr3(PADDR(kern_pgdir));
 }
 
 //
