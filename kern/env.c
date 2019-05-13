@@ -290,7 +290,6 @@ region_alloc(struct Env *e, void *va, size_t len)
 
 		if (page_insert(e->env_pgdir, p, va, PTE_W | PTE_U) < 0)
 			panic("region_alloc: failed to insert page in environment pgdir");
-
 	}
 }
 
@@ -531,15 +530,15 @@ env_run(struct Env *e)
 
 	// LAB 3: Your code here.
 	// !!!!
-	if (curenv) {
+	if (curenv != e) {
 		curenv->env_status = ENV_RUNNABLE;
+		// !!!! if curenv is ENV_DYING should free the environment?
+
+		curenv = e;
+		curenv->env_status = ENV_RUNNING;
+		curenv->env_runs = curenv->env_runs + 1;
+		lcr3(PADDR(e->env_pgdir));
 	}
 
-	curenv = e;
-	curenv->env_status = ENV_RUNNING;
-	curenv->env_runs = curenv->env_runs + 1;
-
-	lcr3(PADDR(e->env_pgdir));
-
-	panic("env_run not yet implemented");
+	env_pop_tf(&e->env_tf);
 }
