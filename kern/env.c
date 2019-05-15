@@ -402,7 +402,6 @@ void
 env_create(uint8_t *binary, enum EnvType type)
 {
 	// LAB 3: Your code here.
-	// !!!!
 	struct Env *e;
 
 	int err;
@@ -529,11 +528,12 @@ env_run(struct Env *e)
 	//	e->env_tf to sensible values.
 
 	// LAB 3: Your code here.
-	// !!!!
-	if (curenv != e) {
-		curenv->env_status = ENV_RUNNABLE;
-		// !!!! if curenv is ENV_DYING should free the environment?
+	if (curenv) {
+		if (cuenv->env_status == ENV_RUNNING)
+			curenv->env_status = ENV_RUNNABLE;
+	}
 
+	if (curenv != e) {
 		curenv = e;
 		curenv->env_status = ENV_RUNNING;
 		curenv->env_runs = curenv->env_runs + 1;
