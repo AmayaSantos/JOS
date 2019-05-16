@@ -277,18 +277,20 @@ region_alloc(struct Env *e, void *va, size_t len)
 	if (len == 0)
 		return;
 
-	uint32_t* last_page = ROUNDUP(va+len, PGSIZE);
-	uint32_t* first_page = ROUNDDOWN(va, PGSIZE);
+	void *first_page = ROUNDDOWN(va, PGSIZE);
+	void *last_page = ROUNDUP(va+len, PGSIZE);
 
 	uint32_t npages_to_alloc = (last_page - first_page) / PGSIZE;
 
-	for (int i = 0; i < npages_to_alloc; i++, va+=PGSIZE){
+	void *current_page = first_page;
+
+	for (int i = 0; i < npages_to_alloc; i++, current_page+=PGSIZE){
 		struct PageInfo *p = NULL;
 
 		if (!(p = page_alloc(0)))
 			panic("region_alloc: %s", -E_NO_MEM);
 
-		if (page_insert(e->env_pgdir, p, va, PTE_W | PTE_U) < 0)
+		if (page_insert(e->env_pgdir, p, current_page, PTE_W | PTE_U) < 0)
 			panic("region_alloc: failed to insert page in environment pgdir");
 	}
 }
@@ -335,7 +337,7 @@ load_icode(struct Env *e, uint8_t *binary)
 	//  at the address specified in the ELF section header.
 	//  Use functions from the previous lab to allocate and map pages.
 	struct Proghdr *ph, *eph;
-	ph = (struct Proghdr *) binary + elf->e_phoff;
+	ph = (struct Proghdr *) (binary + elf->e_phoff);
 	eph = ph + elf->e_phnum;
 
 	for (; ph < eph; ph++) {
