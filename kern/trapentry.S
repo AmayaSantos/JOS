@@ -20,6 +20,7 @@
  *   void NAME();
  * where NAME is the argument passed to TRAPHANDLER.
  */
+// !!!!
 #define TRAPHANDLER(name, num)						\
 	.globl name;		/* define global symbol for 'name' */	\
 	.type name, @function;	/* symbol type is function */		\
@@ -32,6 +33,7 @@
  * It pushes a 0 in place of the error code, so the trap frame has the same
  * format in either case.
  */
+// !!!!
 #define TRAPHANDLER_NOEC(name, num)					\
 	.globl name;							\
 	.type name, @function;						\
@@ -46,10 +48,43 @@
 /*
  * Lab 3: Your code here for generating entry points for the different traps.
  */
+TRAPHANDLER_NOEC(trap_handler0, 0)
+TRAPHANDLER_NOEC(trap_handler1, 1)
+TRAPHANDLER_NOEC(trap_handler2, 2)
+TRAPHANDLER_NOEC(trap_handler3, 3)
+TRAPHANDLER_NOEC(trap_handler4, 4)
+TRAPHANDLER_NOEC(trap_handler5, 5)
+TRAPHANDLER_NOEC(trap_handler6, 6)
+TRAPHANDLER_NOEC(trap_handler7, 7)
+TRAPHANDLER(trap_handler8, 8)
+TRAPHANDLER_NOEC(trap_handler9, 9)
+TRAPHANDLER(trap_handler10, 10)
+TRAPHANDLER(trap_handler11, 11)
+TRAPHANDLER(trap_handler12, 12)
+TRAPHANDLER(trap_handler13, 13)
+TRAPHANDLER(trap_handler14, 14)
+TRAPHANDLER_NOEC(trap_handler15, 15)
+TRAPHANDLER_NOEC(trap_handler16, 16)
+TRAPHANDLER(trap_handler17, 17)
+TRAPHANDLER_NOEC(trap_handler18, 18)
+TRAPHANDLER_NOEC(trap_handler19, 19)
+TRAPHANDLER_NOEC(trap_handler20, 20)
 
+// SYSCALL
+TRAPHANDLER(trap_handler48, 48)
 
 
 /*
  * Lab 3: Your code here for _alltraps
  */
+_alltraps:
+    pushl %ds
+    pushl %es
+    pushal
 
+    mov $GD_KD, %ax
+    movw %ax, %ds
+    movw %ax, %es
+
+    pushl %esp
+    call trap

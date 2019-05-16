@@ -64,6 +64,55 @@ trap_init(void)
 	extern struct Segdesc gdt[];
 
 	// LAB 3: Your code here.
+	void trap_handler0();
+	void trap_handler1();
+	void trap_handler2();
+	void trap_handler3();
+	void trap_handler4();
+	void trap_handler5();
+	void trap_handler6();
+	void trap_handler7();
+	void trap_handler8();
+	void trap_handler9();
+	void trap_handler10();
+	void trap_handler11();
+	void trap_handler12();
+	void trap_handler13();
+	void trap_handler14();
+	void trap_handler15();
+	void trap_handler16();
+	void trap_handler17();
+	void trap_handler18();
+	void trap_handler19();
+	void trap_handler20();
+
+	void trap_handler48();
+
+	SETGATE(idt[0], 1, GD_KT, trap_handler0, 0);
+	SETGATE(idt[1], 1, GD_KT, trap_handler1, 0);
+	SETGATE(idt[2], 1, GD_KT, trap_handler2, 0);
+	SETGATE(idt[3], 1, GD_KT, trap_handler3, 0);
+	SETGATE(idt[4], 1, GD_KT, trap_handler4, 0);
+	SETGATE(idt[5], 1, GD_KT, trap_handler5, 0);
+	SETGATE(idt[6], 1, GD_KT, trap_handler6, 0);
+	SETGATE(idt[7], 1, GD_KT, trap_handler7, 0);
+	SETGATE(idt[8], 1, GD_KT, trap_handler8, 0);
+	SETGATE(idt[9], 1, GD_KT, trap_handler9, 0);
+	SETGATE(idt[10], 1, GD_KT, trap_handler10, 0);
+	SETGATE(idt[11], 1, GD_KT, trap_handler11, 0);
+	SETGATE(idt[12], 1, GD_KT, trap_handler12, 0);
+	SETGATE(idt[13], 1, GD_KT, trap_handler13, 0);
+	SETGATE(idt[14], 1, GD_KT, trap_handler14, 0);
+	SETGATE(idt[15], 1, GD_KT, trap_handler15, 0);
+	SETGATE(idt[16], 1, GD_KT, trap_handler16, 0);
+	SETGATE(idt[17], 1, GD_KT, trap_handler17, 0);
+	SETGATE(idt[18], 1, GD_KT, trap_handler18, 0);
+	SETGATE(idt[19], 1, GD_KT, trap_handler19, 0);
+	SETGATE(idt[20], 1, GD_KT, trap_handler20, 0);
+
+	// SYSCALL
+	SETGATE(idt[48], 0, GD_KT, trap_handler48, 0);
+
 
 	// Per-CPU setup
 	trap_init_percpu();
@@ -153,6 +202,7 @@ trap_dispatch(struct Trapframe *tf)
 	}
 }
 
+// !!!!
 void
 trap(struct Trapframe *tf)
 {
