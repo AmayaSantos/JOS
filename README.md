@@ -279,7 +279,7 @@ En `8(%esp)` está la dirección de `tf->tf_eflags`.
 
 - paso 9
 ```
-(gdb) p $pc
+    (gdb) p $pc
     $2 = (void (*)()) 0x800020
     (gdb) p $eip
     $3 = (void (*)()) 0x800020
@@ -326,7 +326,41 @@ En `8(%esp)` está la dirección de `tf->tf_eflags`.
 
 1. Responder: ¿Cómo decidir si usar `TRAPHANDLER` o `TRAPHANDLER_NOEC`? ¿Qué pasaría si se usara solamente la primera?
 
+Nos guiamos con la tabla 5-1 de **Intel® 64 and IA-32 Architectures Software Developer’s Manual** (https://pdos.csail.mit.edu/6.828/2017/readings/ia32/IA32-3A.pdf) y con la tabla que se encuentra en https://pdos.csail.mit.edu/6.828/2017/readings/i386/s09_10.htm
+
+
+```
+Description                       Interrupt     Error Code
+Number
+
+Divide error                       0            No
+Debug exceptions                   1            No
+Breakpoint                         3            No
+Overflow                           4            No
+Bounds check                       5            No
+Invalid opcode                     6            No
+Coprocessor not available          7            No
+System error                       8            Yes (always 0)
+Coprocessor Segment Overrun        9            No
+Invalid TSS                       10            Yes
+Segment not present               11            Yes
+Stack exception                   12            Yes
+General protection fault          13            Yes
+Page fault                        14            Yes
+Coprocessor error                 16            No
+Two-byte SW interrupt             0-255         No
+```
+
+Si sólo usáramos `TRAPHANDLER`, en algunos casos no se *pushearía* el *error code* (ni un valor *dummy* como hace `TRAPHANDLER_NOEC`) y nuestro trapframe no tendría el formato especificado en `struct TrapFrame`, ya que no sería consistente. 
+
 2. Responder: ¿Qué cambia, en la invocación de handlers, el segundo parámetro (`istrap`) de la macro `SETGATE`? ¿Por qué se elegiría un comportamiento u otro durante un syscall?
+
+Lo que hace es indicar si se trata de una *trap gate* (en vez de una *interrupt gate*)
+
+Porque en una *syscall* es necesario que se prevenga que otras interrupciones intervengan con el actual *handler*. 
+
+Las *interrupt gates* modifican el valor de `IF` (*interrupt-enable flag*) y luego lo retornan al valor anterior (que se encuentra en `tf_eflags`) al ejecutar `iret`. Las *trap gates* no modifican `IF`.
+
 
 3. Responder: Leer `user/softint.c` y ejecutarlo con `make run-softint-nox`. ¿Qué excepción se genera? Si es diferente a la que invoca el programa… ¿cuál es el mecanismo por el que ocurrió esto, y por qué motivos?
 
