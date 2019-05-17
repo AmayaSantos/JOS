@@ -128,13 +128,48 @@ Debido a que JOS se compila con la arquitectura de 32 bits i386, independienteme
 
 1. Responder: ¿Qué identificadores se asignan a los primeros 5 procesos creados? (Usar base hexadecimal.)
 
+La generación de ids de entornos se logra con la siguiente porción de código:
+
+```c
+generation = (e->env_id + (1 << ENVGENSHIFT)) & ~(NENV - 1);
+e->env_id = generation | (e - envs);
+```
+
+Analíticamente, sabiendo que `ENVGENSHIFT` equivale a 12, y `NENV` es `1 << 10` (1024), se puede ver que `generation` equivale al id anterior más 4096 y a eso aplicar el AND de bits con ~(1023). Luego, en la segunda linea, se le suma a este valor el número de entorno. Con un id de entorno igual a 0, `generation` será 4096 (`0x1000` en hexadecimal).
+
+Efectivamente, gracias a GDB se puede comprobar que el valor de `generation` en la primera ejecución es el `0x1000` (esto es así ya que en la primera corrida los id de los entornos son 0; una vez que se empiecen a reciclar los entornos el valor de generation dependerá del id del entorno previo). Por ende, luego de la suma del offset, los primeros 5 entornos serán: `0x1000`, `0x1001`, `0x1002`, `0x1003` y `0x1004`.
+
 2. Responder: Supongamos que al arrancar el kernel se lanzan `NENV` procesos a ejecución. A continuación se destruye el proceso asociado a `envs[630]` y se lanza un proceso que cada segundo muere y se vuelve a lanzar. ¿Qué identificadores tendrá este proceso en sus sus primeras cinco ejecuciones?
+
+El primer proceso lanzado no será mas que la suma entre el primer `generation` (`0x1000`) y el offset 630 (en hexadecimal, `0x0276`). Es decir, el `0x1276`.
+
+Luego, una vez que este proceso muera y se relance, se utilizara este id como base para el nuevo `generation`. El `generation` nuevo será entonces la suma entre `0x1276` (el previo id), la constante `0x1000`, y a eso el AND con `~(0x03FF)`. Luego, a ese número se le suma nuevamente el `0x0276`.
+
+Para los primeros 5 procesos queda:
+
+```python
+>>> def generate_id(id_prev): return hex( (id_prev + 0x1000 & ~(0x03FF)) + 0x0276 )
+>>> generate_id(0x0)
+'0x1276'
+>>> generate_id(0x1276)
+'0x2276'
+>>> generate_id(0x2276)
+'0x3276'
+>>> generate_id(0x3276)
+'0x4276'
+>>> generate_id(0x4276)
+'0x5276'
+``` 
 
 ### Inicializaciones: env_init_percpu
 
 1. Responder: ¿Cuántos bytes escribe la función `lgdt`, y dónde?
 
+`lgdt` escribe 6 bytes en la Global Descriptor Table.
+
 2. Responder: ¿Qué representan esos bytes?
+
+Estos bytes son el tamaño del GDT (2 bytes) y la dirección de la tabla (4 bytes). 
 
 ### Lanzar procesos: env_pop_tf
 
@@ -178,13 +213,13 @@ umain(int argc, char **argv)
 
 1. Responder: ¿En qué se diferencia el código de la versión en `evilhello.c` con `evilesthello.c`?
 
-Como se puede observar, la diferencia esta sencillamente en que el `evilhello.c` original no accede a memoria, mientrás que el modificado si lo hace. 
+Como se puede observar, la diferencia esta sencillamente en que el `evilhello.c` original pasa la dirección de memoria sin modificar, mientrás que el modificado antes de eso cambia el puntero (desreferencia, y luego pasa la referencia). 
 
 Específicamente al asignar la variable `first` a `entry` (es decir, la linea `char first = *entry;`), se procede a 'engañar' al sistema operativo (con nada más que un swap) y se logra acceder a una dirección privilegiada. De ser la ejecución satisfactoria, revelaría una gran vulnerabilidad en el sistema: se puede imprimir todo lo que contenga el kernel!
 
 2. Responder: ¿En qué cambia el comportamiento durante la ejecución? ¿Por qué? ¿Cuál es el mecanismo?
 
-Gracias al swap de direcciones, la version modificada (aun más malvada) de `evilhello.c` sí logró imprimir el entry point del kernel como cadena. Esto no debería pasar y se tiene que atrapar de alguna manera (con los assertions del `user_mem_check`), ya que la dirección de memoria a la que se accede es una dirección privilegiada para el usuario y se debe prohibir el acceso a esta.
+Gracias al swap de direcciones, la version modificada (aun más malvada) de `evilhello.c` sí logró imprimir el entry point del kernel como cadena (la versión original no imprimió más que simbolos basura). Esto no debería pasar y se tiene que atrapar de alguna manera (con los assertions del `user_mem_check`), ya que la dirección de memoria a la que se accede es una dirección privilegiada para el usuario y se debe prohibir el acceso a esta.
 
 Ejecución de `evilhello.c` (versión original):
 
