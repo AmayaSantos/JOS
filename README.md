@@ -162,7 +162,7 @@ Debido a que JOS se compila con la arquitectura de 32 bits i386, independienteme
 
 ### Protección de memoria: user_evilhello
 
-Ejecutar el siguiente programa y describir qué ocurre:
+Se guarda el siguiente programa en `evilesthello.c`:
 
 ```c
 #include <inc/lib.h>
@@ -170,12 +170,59 @@ Ejecutar el siguiente programa y describir qué ocurre:
 void
 umain(int argc, char **argv)
 {
-    char *entry = (char *) 0xf010000c;
-    char first = *entry;
-    sys_cputs(&first, 1);
+	char *entry = (char *) 0xf010000c;
+	char first = *entry;
+	sys_cputs(&first, 1);
 }
 ```
 
-1. Responder: ¿En qué se diferencia el código de la versión en _evilhello.c_ mostrada arriba?
+1. Responder: ¿En qué se diferencia el código de la versión en `evilhello.c` con `evilesthello.c`?
+
+Como se puede observar, la diferencia esta sencillamente en que el `evilhello.c` original no accede a memoria, mientrás que el modificado si lo hace. 
+
+Específicamente al asignar la variable `first` a `entry` (es decir, la linea `char first = *entry;`), se procede a 'engañar' al sistema operativo (con nada más que un swap) y se logra acceder a una dirección privilegiada. De ser la ejecución satisfactoria, revelaría una gran vulnerabilidad en el sistema: se puede imprimir todo lo que contenga el kernel!
 
 2. Responder: ¿En qué cambia el comportamiento durante la ejecución? ¿Por qué? ¿Cuál es el mecanismo?
+
+Gracias al swap de direcciones, la version modificada (aun más malvada) de `evilhello.c` sí logró imprimir el entry point del kernel como cadena. Esto no debería pasar y se tiene que atrapar de alguna manera (con los assertions del `user_mem_check`), ya que la dirección de memoria a la que se accede es una dirección privilegiada para el usuario y se debe prohibir el acceso a esta.
+
+Ejecución de `evilhello.c` (versión original):
+
+```asm
+[00000000] new env 00001000
+Incoming TRAP frame at 0xefffffbc
+f�r�Incoming TRAP frame at 0xefffffbc
+[00001000] exiting gracefully
+[00001000] free env 00001000
+Destroyed the only environment - nothing more to do!
+```
+
+Ejecución de `evilesthello.c` (versión modificada):
+
+```asm
+[00000000] new env 00001000
+Incoming TRAP frame at 0xefffffbc
+[00001000] user fault va f010000c ip 00800039
+TRAP frame at 0xf01c1000
+  edi  0x00000000
+  esi  0x00000000
+  ebp  0xeebfdfd0
+  oesp 0xefffffdc
+  ebx  0x00000000
+  edx  0x00000000
+  ecx  0x00000000
+  eax  0x00000000
+  es   0x----0023
+  ds   0x----0023
+  trap 0x0000000e Page Fault
+  cr2  0xf010000c
+  err  0x00000005 [user, read, protection]
+  eip  0x00800039
+  cs   0x----001b
+  flag 0x00000082
+  esp  0xeebfdfb0
+  ss   0x----0023
+[00001000] free env 00001000
+Destroyed the only environment - nothing more to do!
+```
+
