@@ -73,13 +73,13 @@ trap_init(void)
 	void trap_handler6();
 	void trap_handler7();
 	void trap_handler8();
-	void trap_handler9();
+
 	void trap_handler10();
 	void trap_handler11();
 	void trap_handler12();
 	void trap_handler13();
 	void trap_handler14();
-	void trap_handler15();
+
 	void trap_handler16();
 	void trap_handler17();
 	void trap_handler18();
@@ -88,30 +88,29 @@ trap_init(void)
 
 	void trap_handler48();
 
-	SETGATE(idt[0], 1, GD_KT, trap_handler0, 0);
-	SETGATE(idt[1], 1, GD_KT, trap_handler1, 0);
-	SETGATE(idt[2], 1, GD_KT, trap_handler2, 0);
-	SETGATE(idt[3], 1, GD_KT, trap_handler3, 0);
-	SETGATE(idt[4], 1, GD_KT, trap_handler4, 0);
-	SETGATE(idt[5], 1, GD_KT, trap_handler5, 0);
-	SETGATE(idt[6], 1, GD_KT, trap_handler6, 0);
-	SETGATE(idt[7], 1, GD_KT, trap_handler7, 0);
-	SETGATE(idt[8], 1, GD_KT, trap_handler8, 0);
-	SETGATE(idt[9], 1, GD_KT, trap_handler9, 0);
-	SETGATE(idt[10], 1, GD_KT, trap_handler10, 0);
-	SETGATE(idt[11], 1, GD_KT, trap_handler11, 0);
-	SETGATE(idt[12], 1, GD_KT, trap_handler12, 0);
-	SETGATE(idt[13], 1, GD_KT, trap_handler13, 0);
-	SETGATE(idt[14], 1, GD_KT, trap_handler14, 0);
-	SETGATE(idt[15], 1, GD_KT, trap_handler15, 0);
-	SETGATE(idt[16], 1, GD_KT, trap_handler16, 0);
-	SETGATE(idt[17], 1, GD_KT, trap_handler17, 0);
-	SETGATE(idt[18], 1, GD_KT, trap_handler18, 0);
-	SETGATE(idt[19], 1, GD_KT, trap_handler19, 0);
-	SETGATE(idt[20], 1, GD_KT, trap_handler20, 0);
+	SETGATE(idt[T_DIVIDE], 1, GD_KT, trap_handler0, 0);
+	SETGATE(idt[T_DEBUG], 1, GD_KT, trap_handler1, 0);
+	SETGATE(idt[T_NMI], 1, GD_KT, trap_handler2, 0);
+	SETGATE(idt[T_BRKPT], 1, GD_KT, trap_handler3, 3); // Exception is able to be thrown from user programs
+	SETGATE(idt[T_OFLOW], 1, GD_KT, trap_handler4, 0);
+	SETGATE(idt[T_BOUND], 1, GD_KT, trap_handler5, 0);
+	SETGATE(idt[T_ILLOP], 1, GD_KT, trap_handler6, 0);
+	SETGATE(idt[T_DEVICE], 1, GD_KT, trap_handler7, 0);
+	SETGATE(idt[T_DBLFLT], 1, GD_KT, trap_handler8, 0);
+
+	SETGATE(idt[T_TSS], 1, GD_KT, trap_handler10, 0);
+	SETGATE(idt[T_SEGNP], 1, GD_KT, trap_handler11, 0);
+	SETGATE(idt[T_STACK], 1, GD_KT, trap_handler12, 0);
+	SETGATE(idt[T_GPFLT], 1, GD_KT, trap_handler13, 0);
+	SETGATE(idt[T_PGFLT], 1, GD_KT, trap_handler14, 0);
+
+	SETGATE(idt[T_FPERR], 1, GD_KT, trap_handler16, 0);
+	SETGATE(idt[T_ALIGN], 1, GD_KT, trap_handler17, 0);
+	SETGATE(idt[T_MCHK], 1, GD_KT, trap_handler18, 0);
+	SETGATE(idt[T_SIMDERR], 1, GD_KT, trap_handler19, 0);
 
 	// SYSCALL
-	SETGATE(idt[48], 0, GD_KT, trap_handler48, 0);
+	SETGATE(idt[T_SYSCALL], 0, GD_KT, trap_handler48, 0);
 
 
 	// Per-CPU setup
@@ -191,6 +190,27 @@ trap_dispatch(struct Trapframe *tf)
 {
 	// Handle processor exceptions.
 	// LAB 3: Your code here.
+	// !!!!
+	switch(tf->tf_trapno) {
+		case T_BRKPT:
+			monitor(tf);
+			return;
+
+		case T_PGFLT:
+			page_fault_handler(tf);
+			return;
+
+		case T_SYSCALL:
+		{
+			struct PushRegs *regs = &tf->tf_regs;
+			int32_t ret = syscall(regs->reg_eax, regs->reg_edx, regs->reg_ecx, regs->reg_ebx,
+					regs->reg_edi, regs->reg_esi);
+			regs->reg_eax = ret;
+		}
+
+		default:
+			break;
+	}
 
 	// Unexpected trap: The user process or the kernel has a bug.
 	print_trapframe(tf);
@@ -202,7 +222,6 @@ trap_dispatch(struct Trapframe *tf)
 	}
 }
 
-// !!!!
 void
 trap(struct Trapframe *tf)
 {
