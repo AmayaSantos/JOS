@@ -281,16 +281,15 @@ region_alloc(struct Env *e, void *va, size_t len)
 	void *last_page = ROUNDUP(va+len, PGSIZE);
 
 	uint32_t npages_to_alloc = (last_page - first_page) / PGSIZE;
+	void *current_va = first_page;
 
-	void *current_page = first_page;
-
-	for (int i = 0; i < npages_to_alloc; i++, current_page+=PGSIZE){
+	for (int i = 0; i < npages_to_alloc; i++, current_va+=PGSIZE){
 		struct PageInfo *p = NULL;
 
 		if (!(p = page_alloc(0)))
 			panic("region_alloc: %s", -E_NO_MEM);
 
-		if (page_insert(e->env_pgdir, p, current_page, PTE_W | PTE_U) < 0)
+		if (page_insert(e->env_pgdir, p, current_va, PTE_W | PTE_U) < 0)
 			panic("region_alloc: failed to insert page in environment pgdir");
 	}
 }

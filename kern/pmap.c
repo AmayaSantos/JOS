@@ -575,6 +575,22 @@ int
 user_mem_check(struct Env *env, const void *va, size_t len, int perm)
 {
 	// LAB 3: Your code here.
+	void *first_page = ROUNDDOWN((void*) va, PGSIZE);
+	void *last_page = ROUNDUP((void*) (va+len), PGSIZE);
+
+	uint32_t npages_to_check = (last_page - first_page) / PGSIZE;
+	void *current_va = first_page;
+
+	for (int i = 0; i < npages_to_check; i++, current_va+=PGSIZE) {
+		pte_t *current_pte = NULL;
+
+		if ((uintptr_t) current_va >= ULIM ||
+			!(page_lookup(env->env_pgdir, current_va, &current_pte) && (*current_pte & perm))) {
+
+			user_mem_check_addr = (uintptr_t) (current_va < va ? va : current_va);
+			return -E_FAULT;
+		}
+	}
 
 	return 0;
 }
