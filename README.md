@@ -188,145 +188,139 @@ En `8(%esp)` está la dirección de `tf->tf_eflags`.
 
 ### Lanzar procesos: gdb_hello
 
-1. Incluir una sesión de GDB con diversos pasos:
+Incluir una sesión de GDB con diversos pasos:
 
-- paso 2
-```
-    (qemu) info registers
-    EAX=003bc000 EBX=f01c0000 ECX=f03bc000 EDX=0000021f
-    ESI=00010094 EDI=00000000 EBP=f0118fd8 ESP=f0118fbc
-    EIP=f0102ecd EFL=00000092 [--S-A--] CPL=0 II=0 A20=1 SMM=0 HLT=0
-    ES =0010 00000000 ffffffff 00cf9300 DPL=0 DS   [-WA]
-    CS =0008 00000000 ffffffff 00cf9a00 DPL=0 CS32 [-R-]
-```
+  1. Poner un breakpoint en `env_pop_tf()` y continuar la ejecución hasta allí.
 
-- paso 3
-```
+  2. En QEMU, entrar en modo monitor (`Ctrl-a c`), y mostrar las cinco primeras líneas del comando `info registers`.
+  
+		(qemu) info registers
+		EAX=003bc000 EBX=f01c0000 ECX=f03bc000 EDX=0000021f
+		ESI=00010094 EDI=00000000 EBP=f0118fd8 ESP=f0118fbc
+		EIP=f0102ecd EFL=00000092 [--S-A--] CPL=0 II=0 A20=1 SMM=0 HLT=0
+		ES =0010 00000000 ffffffff 00cf9300 DPL=0 DS   [-WA]
+		CS =0008 00000000 ffffffff 00cf9a00 DPL=0 CS32 [-R-]
 
-    (gdb) p tf
-    $1 = (struct Trapframe *) 0xf01c0000
-```
+  3. De vuelta a GDB, imprimir el valor del argumento _tf_:
 
-- paso 4
-```
-    (gdb) x/17x tf
-    0xf01c0000:     0x00000000      0x00000000      0x00000000      0x00000000
-    0xf01c0010:     0x00000000      0x00000000      0x00000000      0x00000000
-    0xf01c0020:     0x00000023      0x00000023      0x00000000      0x00000000
-    0xf01c0030:     0x00800020      0x0000001b      0x00000000      0xeebfe000
-    0xf01c0040:     0x00000023
-```
+		(gdb) p tf
+		$1 = (struct Trapframe *) 0xf01c0000
 
-- paso 5
-```
-    (gdb) disas
-    Dump of assembler code for function env_pop_tf:
-    => 0xf0102ecd <+0>:     push   %ebp
-       0xf0102ece <+1>:     mov    %esp,%ebp
-       0xf0102ed0 <+3>:     sub    $0xc,%esp
-       0xf0102ed3 <+6>:     mov    0x8(%ebp),%esp
-       0xf0102ed6 <+9>:     popa
-       0xf0102ed7 <+10>:    pop    %es
-       0xf0102ed8 <+11>:    pop    %ds
-       0xf0102ed9 <+12>:    add    $0x8,%esp
-       0xf0102edc <+15>:    iret
-       0xf0102edd <+16>:    push   $0xf0105444
-       0xf0102ee2 <+21>:    push   $0x1f9
-       0xf0102ee7 <+26>:    push   $0xf01053c2
-       0xf0102eec <+31>:    call   0xf01000ab <_panic>
-    End of assembler dump.
+  4. Imprimir, con `x/Nx tf` tantos enteros como haya en el struct _Trapframe_ donde `N = sizeof(Trapframe) / sizeof(int)`. 
+
+		(gdb) x/17x tf
+		0xf01c0000:     0x00000000      0x00000000      0x00000000      0x00000000
+		0xf01c0010:     0x00000000      0x00000000      0x00000000      0x00000000
+		0xf01c0020:     0x00000023      0x00000023      0x00000000      0x00000000
+		0xf01c0030:     0x00800020      0x0000001b      0x00000000      0xeebfe000
+		0xf01c0040:     0x00000023
+		
+  5. Avanzar hasta justo después del `movl ...,%esp`, usando `si M` para ejecutar tantas instrucciones como sea necesario **en un solo paso**:
+
+		(gdb) disas
+		Dump of assembler code for function env_pop_tf:
+		=> 0xf0102ecd <+0>:     push   %ebp
+		   0xf0102ece <+1>:     mov    %esp,%ebp
+		   0xf0102ed0 <+3>:     sub    $0xc,%esp
+		   0xf0102ed3 <+6>:     mov    0x8(%ebp),%esp
+		   0xf0102ed6 <+9>:     popa
+		   0xf0102ed7 <+10>:    pop    %es
+		   0xf0102ed8 <+11>:    pop    %ds
+		   0xf0102ed9 <+12>:    add    $0x8,%esp
+		   0xf0102edc <+15>:    iret
+		   0xf0102edd <+16>:    push   $0xf0105444
+		   0xf0102ee2 <+21>:    push   $0x1f9
+		   0xf0102ee7 <+26>:    push   $0xf01053c2
+		   0xf0102eec <+31>:    call   0xf01000ab <_panic>
+		End of assembler dump.
+		
+		(gdb) si 4
+
+  6. Comprobar, con `x/Nx $sp` que los contenidos son los mismos que _tf_ (donde `N` es el tamaño de _tf_).
+
+		(gdb) x/17x $sp
+		0xf01c0000:     0x00000000      0x00000000      0x00000000      0x00000000
+		0xf01c0010:     0x00000000      0x00000000      0x00000000      0x00000000
+		0xf01c0020:     0x00000023      0x00000023      0x00000000      0x00000000
+		0xf01c0030:     0x00800020      0x0000001b      0x00000000      0xeebfe000
+		0xf01c0040:     0x00000023
+
+  7. Explicar con el mayor detalle posible cada uno de los valores. Para los valores no nulos, se debe indicar dónde se configuró inicialmente el valor, y qué representa.
+
+Los primeros 8 valores que se muestran corresponden a los valores de los registros en el orden que tienen en `struct PushRegs`.
     
-    (gdb) si 4
-```
-    
-- paso 6
-```
-    (gdb) x/17x $sp
-    0xf01c0000:     0x00000000      0x00000000      0x00000000      0x00000000
-    0xf01c0010:     0x00000000      0x00000000      0x00000000      0x00000000
-    0xf01c0020:     0x00000023      0x00000023      0x00000000      0x00000000
-    0xf01c0030:     0x00800020      0x0000001b      0x00000000      0xeebfe000
-    0xf01c0040:     0x00000023
-```
+Los miembros `tf_es` (Extra Segment) y `tf_ds` (Data Segment) tienen el mismo valor: `0x00000023`. El valor corresponde al segmento de memoria.
 
-- paso 7
-```
-    Los primeros 8 valores que se muestran corresponden a los valores de los registros en el orden que tienen en `struct PushRegs`.
-    
-    Los miembros `tf_es` (Extra Segment) y `tf_ds` (Data Segment) tienen el mismo valor: `0x00000023`. El valor corresponde al segmento de memoria.
-    
-    El valor de `tf_eip`, `0x00800020`, indica a que instrucción tiene que volver el procesador al retomar el programa.
-    
-    Los últimos dos bits del miembro `tf_cs`, `0x0000001b`, indican el *ring* del proceso, en este caso, al ser `0x3`, indica que está en modo usuario.
+El valor de `tf_eip`, `0x00800020`, indica a que instrucción tiene que volver el procesador al retomar el programa.
 
-    El miembro `tf_esp` indica a que posición debe volver el registro `%esp` al retomar el proceso.
+Los últimos dos bits del miembro `tf_cs`, `0x0000001b`, indican el *ring* del proceso, en este caso, al ser `0x3`, indica que está en modo usuario.
 
-    Finalmente el miembro `tf_ss` (Stack Segment) contiene el mismo valor que el que tenían `tf_es` y `tf_ds`.
-```
+El miembro `tf_esp` indica a que posición debe volver el registro `%esp` al retomar el proceso.
 
-- paso 8
-```
-    (qemu) info registers
-    EAX=00000000 EBX=00000000 ECX=00000000 EDX=00000000
-    ESI=00000000 EDI=00000000 EBP=00000000 ESP=f01c0030
-    EIP=f0102edc EFL=00000096 [--S-AP-] CPL=0 II=0 A20=1 SMM=0 HLT=0
-    ES =0023 00000000 ffffffff 00cff300 DPL=3 DS   [-WA]
-    CS =0008 00000000 ffffffff 00cf9a00 DPL=0 CS32 [-R-]
-```
+Finalmente el miembro `tf_ss` (Stack Segment) contiene el mismo valor que el que tenían `tf_es` y `tf_ds`.
 
-    Los registros tienen los mismos valores que los que están en el TrapFrame, el DPL de los registros `%es` y `%ds` pasó a ser 3, mientras que el de `%cs` sigue siendo 0.
+  8. Continuar hasta la instrucción `iret`, sin llegar a ejecutarla. Mostrar en este punto, de nuevo, las cinco primeras líneas de `info registers` en el monitor de QEMU. Explicar los cambios producidos.
 
+		(qemu) info registers
+		EAX=00000000 EBX=00000000 ECX=00000000 EDX=00000000
+		ESI=00000000 EDI=00000000 EBP=00000000 ESP=f01c0030
+		EIP=f0102edc EFL=00000096 [--S-AP-] CPL=0 II=0 A20=1 SMM=0 HLT=0
+		ES =0023 00000000 ffffffff 00cff300 DPL=3 DS   [-WA]
+		CS =0008 00000000 ffffffff 00cf9a00 DPL=0 CS32 [-R-]
 
-- paso 9
-```
-    (gdb) p $pc
-    $2 = (void (*)()) 0x800020
-    (gdb) p $eip
-    $3 = (void (*)()) 0x800020
-    
-    (gdb) symbol-file obj/user/hello
-    ¿Cargar una tabla de símbolos nueva desde «obj/user/hello»? (y or n) y
-    Leyendo símbolos desde obj/user/hello...hecho.
-    Error in re-setting breakpoint 1: Función «env_pop_tf» no definida.
-    
-    (gdb) p $eip
-    $4 = (void (*)()) 0x800020 <_start>
-    
-    (qemu) info registers
-    EAX=00000000 EBX=00000000 ECX=00000000 EDX=00000000
-    ESI=00000000 EDI=00000000 EBP=00000000 ESP=eebfe000
-    EIP=00800020 EFL=00000002 [-------] CPL=3 II=0 A20=1 SMM=0 HLT=0
-    ES =0023 00000000 ffffffff 00cff300 DPL=3 DS   [-WA]
-    CS =001b 00000000 ffffffff 00cffa00 DPL=3 CS32 [-R-]
-```
+Los registros tienen los mismos valores que los que están en el TrapFrame, el DPL de los registros `%es` y `%ds` pasó a ser 3, mientras que el de `%cs` sigue siendo 0.
 
-    Ahora el DPL del registro `%cs` pasó a ser 3, lo que indica que está en *user mode*.
+  9. Ejecutar la instrucción `iret`. En ese momento se ha realizado el cambio de contexto y los símbolos del kernel ya no son válidos.
 
+      - imprimir el valor del contador de programa con `p $pc` o `p $eip`
+      - cargar los símbolos de _hello_ con `symbol-file obj/user/hello`
+      - volver a imprimir el valor del contador de programa
+      - Mostrar una última vez la salida de `info registers` en QEMU, y explicar los cambios producidos.
+     
+		(gdb) p $pc
+		$2 = (void (*)()) 0x800020
+		(gdb) p $eip
+		$3 = (void (*)()) 0x800020
+		
+		(gdb) symbol-file obj/user/hello
+		¿Cargar una tabla de símbolos nueva desde «obj/user/hello»? (y or n) y
+		Leyendo símbolos desde obj/user/hello...hecho.
+		Error in re-setting breakpoint 1: Función «env_pop_tf» no definida.
+		
+		(gdb) p $eip
+		$4 = (void (*)()) 0x800020 <_start>
+		
+		(qemu) info registers
+		EAX=00000000 EBX=00000000 ECX=00000000 EDX=00000000
+		ESI=00000000 EDI=00000000 EBP=00000000 ESP=eebfe000
+		EIP=00800020 EFL=00000002 [-------] CPL=3 II=0 A20=1 SMM=0 HLT=0
+		ES =0023 00000000 ffffffff 00cff300 DPL=3 DS   [-WA]
+		CS =001b 00000000 ffffffff 00cffa00 DPL=3 CS32 [-R-]
 
-- paso 10
-```
-    (qemu) info registers
-    EAX=00000000 EBX=00000000 ECX=0000000d EDX=eebfde88
-    ESI=00000000 EDI=00000000 EBP=eebfde40 ESP=eebfde18
-    EIP=008009f9 EFL=00000096 [--S-AP-] CPL=3 II=0 A20=1 SMM=0 HLT=0
-    ES =0023 00000000 ffffffff 00cff300 DPL=3 DS   [-WA]
-    CS =001b 00000000 ffffffff 00cffa00 DPL=3 CS32 [-R-]
-    
-    // Después del break
-    (qemu) info registers
-    EAX=00000000 EBX=00000000 ECX=00000000 EDX=00000663
-    ESI=00000000 EDI=00000000 EBP=00000000 ESP=00000000
-    EIP=0000e05b EFL=00000002 [-------] CPL=0 II=0 A20=1 SMM=0 HLT=0
-    ES =0000 00000000 0000ffff 00009300
-    CS =f000 000f0000 0000ffff 00009b00
-```
+Ahora el DPL del registro `%cs` pasó a ser 3, lo que indica que está en *user mode*.
 
+  10. Poner un breakpoint temporal (`tbreak`, se aplica una sola vez) en la función `syscall()` y explicar qué ocurre justo tras ejecutar la instrucción `int $0x30`. Usar, de ser necesario, el monitor de QEMU.
+  
+		(qemu) info registers
+		EAX=00000000 EBX=00000000 ECX=0000000d EDX=eebfde88
+		ESI=00000000 EDI=00000000 EBP=eebfde40 ESP=eebfde18
+		EIP=008009f9 EFL=00000096 [--S-AP-] CPL=3 II=0 A20=1 SMM=0 HLT=0
+		ES =0023 00000000 ffffffff 00cff300 DPL=3 DS   [-WA]
+		CS =001b 00000000 ffffffff 00cffa00 DPL=3 CS32 [-R-]
+		
+		// Después del break
+		(qemu) info registers
+		EAX=00000000 EBX=00000000 ECX=00000000 EDX=00000663
+		ESI=00000000 EDI=00000000 EBP=00000000 ESP=00000000
+		EIP=0000e05b EFL=00000002 [-------] CPL=0 II=0 A20=1 SMM=0 HLT=0
+		ES =0000 00000000 0000ffff 00009300
+		CS =f000 000f0000 0000ffff 00009b00
 
 ### Interrupts y syscalls: kern_idt
 
 1. Responder: ¿Cómo decidir si usar `TRAPHANDLER` o `TRAPHANDLER_NOEC`? ¿Qué pasaría si se usara solamente la primera?
 
-Nos guiamos con la tabla 5-1 de **Intel® 64 and IA-32 Architectures Software Developer’s Manual** (https://pdos.csail.mit.edu/6.828/2017/readings/ia32/IA32-3A.pdf) y con la tabla que se encuentra en https://pdos.csail.mit.edu/6.828/2017/readings/i386/s09_10.htm
+Nos guiamos con la tabla 5-1 de **[Intel® 64 and IA-32 Architectures Software Developer’s Manual](https://pdos.csail.mit.edu/6.828/2017/readings/ia32/IA32-3A.pdf)**  y con la tabla en la sección 9.10 de **[Intel 80386 Reference Programmer's Manual](https://pdos.csail.mit.edu/6.828/2017/readings/i386/s09_10.htm)**
 
 
 ```
