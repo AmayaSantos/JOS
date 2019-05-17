@@ -110,7 +110,7 @@ trap_init(void)
 	SETGATE(idt[T_SIMDERR], 1, GD_KT, trap_handler19, 0);
 
 	// SYSCALL
-	SETGATE(idt[T_SYSCALL], 0, GD_KT, trap_handler48, 0);
+	SETGATE(idt[T_SYSCALL], 0, GD_KT, trap_handler48, 3);
 
 
 	// Per-CPU setup
@@ -203,9 +203,9 @@ trap_dispatch(struct Trapframe *tf)
 		case T_SYSCALL:
 		{
 			struct PushRegs *regs = &tf->tf_regs;
-			int32_t ret = syscall(regs->reg_eax, regs->reg_edx, regs->reg_ecx, regs->reg_ebx,
+			regs->reg_eax = syscall(regs->reg_eax, regs->reg_edx, regs->reg_ecx, regs->reg_ebx,
 					regs->reg_edi, regs->reg_esi);
-			regs->reg_eax = ret;
+			return;
 		}
 
 		default:

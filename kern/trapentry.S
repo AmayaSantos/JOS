@@ -68,25 +68,25 @@ TRAPHANDLER_NOEC(trap_handler18, T_MCHK)
 TRAPHANDLER_NOEC(trap_handler19, T_SIMDERR)
 
 // SYSCALL
-TRAPHANDLER(trap_handler48, T_SYSCALL)
+TRAPHANDLER_NOEC(trap_handler48, T_SYSCALL)
 
 
 /*
  * Lab 3: Your code here for _alltraps
  */
 _alltraps:
-    // 1. push values to make the stack look like a struct Trapframe
+    // 1. push values to make the stack look like a struct Trapframe.
     pushl %ds
     pushl %es
     pushal
 
-    // 2. load GD_KD into %ds and %es
+    // 2. load GD_KD into %ds and %es.
     mov $GD_KD, %ax
     movw %ax, %ds
     movw %ax, %es
 
-    // 3. pushl %esp to pass a pointer to the Trapframe as an argument to trap()
+    // 3. pushl %esp to pass a pointer to the Trapframe as an argument to trap().
     pushl %esp
 
-    // 4. call trap
+    // 4. call trap.
     call trap
