@@ -364,6 +364,10 @@ Las *interrupt gates* modifican el valor de `IF` (*interrupt-enable flag*) y lue
 
 3. Responder: Leer `user/softint.c` y ejecutarlo con `make run-softint-nox`. ¿Qué excepción se genera? Si es diferente a la que invoca el programa… ¿cuál es el mecanismo por el que ocurrió esto, y por qué motivos?
 
+Se genera la excepción *General Protection*, cuando uno esperaría que ocurra una *Page Fault*, ya que 14 corresponde a esa excepción en `idt`.
+Esto ocurre porque aún no se programó cómo debe responder el *kernel* en caso de una *Page Fault*.
+
+
 ### Protección de memoria: user_evilhello
 
 Se guarda el siguiente programa en `evilesthello.c`:
