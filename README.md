@@ -17,7 +17,7 @@ header-includes: |
     \let\oldverbatim\verbatim
  \renewenvironment{verbatim}{\begin{leftbar_mod}\begin{oldverbatim}}{\end{oldverbatim}\end{leftbar_mod}}
 include-before: |
- \renewcommand{\texttt}[1]{\OldTexttt{\color{magenta}{#1}}}   
+ \renewcommand{\texttt}[1]{\OldTexttt{\color{magenta}{#1}}}
 ---
 
 # Trabajos Prácticos con JOS
@@ -28,7 +28,7 @@ Respuestas teóricas de los distintos trabajos prácticos/labs de Sistemas Opera
 
 ### Memoria física: boot_alloc_pos
 
-1. Inlcuir: Un cálculo manual de la primera dirección de memoria que devolverá boot_alloc() tras el arranque. Se puede calcular a partir del binario compilado (obj/kern/kernel), usando los comandos readelf y/o nm y operaciones matemáticas.
+1. Inlcuir: Un cálculo manual de la primera dirección de memoria que devolverá `boot_alloc()` tras el arranque. Se puede calcular a partir del binario compilado (obj/kern/kernel), usando los comandos `readelf` y/o `nm` y operaciones matemáticas.
 
 Truncando la salida de ambos comandos (con `grep`), vemos las siguientes lineas:
 
@@ -45,7 +45,7 @@ Por ende, el valor devuelto será el de `ROUNDUP(4027677008, 4096)`. Esta funci�
 
 ```python
 sisop_2019a_delmazo_souto TP1 % python3
-Python 3.6.7 |Anaconda, Inc.| (default, Oct 23 2018, 19:16:44) 
+Python 3.6.7 |Anaconda, Inc.| (default, Oct 23 2018, 19:16:44)
 >>> a = 0xf0117950
 >>> n = 4096
 >>> def rounddown(a,n): return a - a % n
@@ -57,7 +57,7 @@ Python 3.6.7 |Anaconda, Inc.| (default, Oct 23 2018, 19:16:44)
 '0xf0118000'
 ```
 
-2. Incluir: Una sesión de GDB en la que, poniendo un breakpoint en la función boot_alloc(), se muestre el valor de end y nextfree al comienzo y fin de esa primera llamada a boot_alloc().
+2. Incluir: Una sesión de GDB en la que, poniendo un breakpoint en la función `boot_alloc()`, se muestre el valor de `end` y `nextfree` al comienzo y fin de esa primera llamada a `boot_alloc()`.
 
 ```asm
 sisop_2019a_delmazo_souto TP1 % make gdb
@@ -108,12 +108,12 @@ Como se puede ver, se cumple todo lo planteado. `end` comienza en `0xf0117950`, 
 
 ### Memoria física: page_alloc
 
-1. Responder: ¿en qué se diferencia page2pa() de page2kva()?
+1. Responder: ¿en qué se diferencia `page2pa()` de `page2kva()`?
 
-Como bien indican sus nombres, `page2pa()` y `page2kva()` se diferencian en el valor de retorno. Ambas reciben una página física, pero `page2pa()` devuelve su dirección física (de tipo `physaddr_t`) mientrás que `page2kva()` devuelve la dirección virtual (kernel virtual address), de tipo `void*`. 
+Como bien indican sus nombres, `page2pa()` y `page2kva()` se diferencian en el valor de retorno. Ambas reciben una página física, pero `page2pa()` devuelve su dirección física (de tipo `physaddr_t`) mientrás que `page2kva()` devuelve la dirección virtual (kernel virtual address), de tipo `void*`.
 
 Incluso, `page2kva()` no es más que un llamado a `page2pa()` y luego a la función del preprocesador `KADDR()` que recibe una dirección física y devuelve la respectiva dirección virtual.
-   
+
 ### Large pages: map_region_large
 
 1. Responder: ¿cuánta memoria se ahorró de este modo? ¿Es una cantidad fija, o depende de la memoria física de la computadora?
@@ -121,3 +121,61 @@ Incluso, `page2kva()` no es más que un llamado a `page2pa()` y luego a la funci
 Se ahorran 4KB, que es el tamaño de un página, ya que se deja de usar `entry_pgtable` y se mapea la misma cantidad de memoria consecutiva (4MB) directamente con una *large page*.
 
 Debido a que JOS se compila con la arquitectura de 32 bits i386, independientemente de cuál sea la memoria física disponible de la máquina, las páginas tendrán un tamaño de 4KB, y cómo lo que sea ahorra es crear a `entry_pgtable`, que tiene el tamaño de una página, se ahorra esa cantidad de bytes.
+
+## TP2: Procesos de usuario (17/5/2019)
+
+### Inicializaciones: env_alloc
+
+1. Responder: ¿Qué identificadores se asignan a los primeros 5 procesos creados? (Usar base hexadecimal.)
+
+2. Responder: Supongamos que al arrancar el kernel se lanzan `NENV` procesos a ejecución. A continuación se destruye el proceso asociado a `envs[630]` y se lanza un proceso que cada segundo muere y se vuelve a lanzar. ¿Qué identificadores tendrá este proceso en sus sus primeras cinco ejecuciones?
+
+### Inicializaciones: env_init_percpu
+
+1. Responder: ¿Cuántos bytes escribe la función `lgdt`, y dónde?
+
+2. Responder: ¿Qué representan esos bytes?
+
+### Lanzar procesos: env_pop_tf
+
+1. Responder: ¿Qué hay en `(%esp)` tras el primer `movl` de la función?
+
+2. Responder: ¿Qué hay en `(%esp)` justo antes de la instrucción `iret`? ¿Y en `8(%esp)`?
+
+3. Responder: ¿Cómo puede determinar la CPU si hay un cambio de ring (nivel de privilegio)?
+
+### Lanzar procesos: gdb_hello
+
+1. Incluir una sesión de GDB con diversos pasos:
+
+- paso 1
+- paso 2
+- etc
+
+### Interrupts y syscalls: kern_idt
+
+1. Responder: ¿Cómo decidir si usar `TRAPHANDLER` o `TRAPHANDLER_NOEC`? ¿Qué pasaría si se usara solamente la primera?
+
+2. Responder: ¿Qué cambia, en la invocación de handlers, el segundo parámetro (`istrap`) de la macro `SETGATE`? ¿Por qué se elegiría un comportamiento u otro durante un syscall?
+
+3. Responder: Leer `user/softint.c` y ejecutarlo con `make run-softint-nox`. ¿Qué excepción se genera? Si es diferente a la que invoca el programa… ¿cuál es el mecanismo por el que ocurrió esto, y por qué motivos?
+
+### Protección de memoria: user_evilhello
+
+Ejecutar el siguiente programa y describir qué ocurre:
+
+```c
+#include <inc/lib.h>
+
+void
+umain(int argc, char **argv)
+{
+    char *entry = (char *) 0xf010000c;
+    char first = *entry;
+    sys_cputs(&first, 1);
+}
+```
+
+1. Responder: ¿En qué se diferencia el código de la versión en _evilhello.c_ mostrada arriba?
+
+2. Responder: ¿En qué cambia el comportamiento durante la ejecución? ¿Por qué? ¿Cuál es el mecanismo?
