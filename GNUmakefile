@@ -317,6 +317,9 @@ $(OBJDIR)/.deps: $(foreach dir, $(OBJDIRS), $(wildcard $(OBJDIR)/$(dir)/*.d))
 always:
 	@:
 
+informe: README.md
+	pandoc -s -o $@.pdf $< --latex-engine=xelatex
+
 .PHONY: format
 .PHONY: all always \
 	handin git-handin tarball tarball-pref clean realclean distclean grade handin-prep handin-check
