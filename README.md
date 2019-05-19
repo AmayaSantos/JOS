@@ -272,10 +272,10 @@ Los registros tienen los mismos valores que los que están en el TrapFrame, el D
 
   9. Ejecutar la instrucción `iret`. En ese momento se ha realizado el cambio de contexto y los símbolos del kernel ya no son válidos.
 
-      - imprimir el valor del contador de programa con `p $pc` o `p $eip`
-      - cargar los símbolos de _hello_ con `symbol-file obj/user/hello`
-      - volver a imprimir el valor del contador de programa
-      - Mostrar una última vez la salida de `info registers` en QEMU, y explicar los cambios producidos.
+  - imprimir el valor del contador de programa con `p $pc` o `p $eip`
+  - cargar los símbolos de _hello_ con `symbol-file obj/user/hello`
+  - volver a imprimir el valor del contador de programa
+  - Mostrar una última vez la salida de `info registers` en QEMU, y explicar los cambios producidos.
      
 		(gdb) p $pc
 		$2 = (void (*)()) 0x800020
