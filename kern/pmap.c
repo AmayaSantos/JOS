@@ -294,9 +294,9 @@ mem_init_mp(void)
 void
 page_init(void)
 {
-	// LAB 4:
-	// Change your code to mark the physical page at MPENTRY_PADDR
-	// as in use
+
+	_Static_assert(MPENTRY_PADDR % PGSIZE == 0,
+				   "page_init: MPENTRY_PADDR is not page-aligned");
 
 	// The example code here marks all physical pages as free.
 	// However this is not truly the case.  What memory is free?
@@ -320,7 +320,14 @@ page_init(void)
 	size_t i;
 	for (i = 0; i < npages; i++) {
 		physaddr_t physaddr = page2pa(&pages[i]);
-		if (i == 0 || (physaddr >= IOPHYSMEM && physaddr <= pages_end)){
+		if (i == 0 || (physaddr >= IOPHYSMEM && physaddr <= pages_end)) {
+			continue;
+		}
+
+		// LAB 4:
+		// Change your code to mark the physical page at MPENTRY_PADDR
+		// as in use
+		if (i * PGSIZE == MPENTRY_PADDR) {
 			continue;
 		}
 
