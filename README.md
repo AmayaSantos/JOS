@@ -428,3 +428,9 @@ TRAP frame at 0xf01c1000
 Destroyed the only environment - nothing more to do!
 ```
 
+## TP3: Multitarea con desalojo (14/06/2019)
+
+### Múltiples CPUs: static_assert
+
+Responder: ¿cómo y por qué funciona la macro static_assert que define JOS?
+
