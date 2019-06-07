@@ -17,11 +17,7 @@ header-includes: |
     \let\oldverbatim\verbatim
  \renewenvironment{verbatim}{\begin{leftbar_mod}\begin{oldverbatim}}{\end{oldverbatim}\end{leftbar_mod}}
 include-before: |
-<<<<<<< HEAD
- \renewcommand{\texttt}[1]{\OldTexttt{\color{magenta}{#1}}}   
-=======
  \renewcommand{\texttt}[1]{\OldTexttt{\color{magenta}{#1}}}
->>>>>>> 47dda75fdafc7a11cf10e00e18c26065fc1ec35a
 ---
 
 # Trabajos Prácticos con JOS
@@ -32,11 +28,7 @@ Respuestas teóricas de los distintos trabajos prácticos/labs de Sistemas Opera
 
 ### Memoria física: boot_alloc_pos
 
-<<<<<<< HEAD
-1. Inlcuir: Un cálculo manual de la primera dirección de memoria que devolverá boot_alloc() tras el arranque. Se puede calcular a partir del binario compilado (obj/kern/kernel), usando los comandos readelf y/o nm y operaciones matemáticas.
-=======
 1. Inlcuir: Un cálculo manual de la primera dirección de memoria que devolverá `boot_alloc()` tras el arranque. Se puede calcular a partir del binario compilado (obj/kern/kernel), usando los comandos `readelf` y/o `nm` y operaciones matemáticas.
->>>>>>> 47dda75fdafc7a11cf10e00e18c26065fc1ec35a
 
 Truncando la salida de ambos comandos (con `grep`), vemos las siguientes lineas:
 
@@ -53,11 +45,7 @@ Por ende, el valor devuelto será el de `ROUNDUP(4027677008, 4096)`. Esta funci�
 
 ```python
 sisop_2019a_delmazo_souto TP1 % python3
-<<<<<<< HEAD
-Python 3.6.7 |Anaconda, Inc.| (default, Oct 23 2018, 19:16:44) 
-=======
 Python 3.6.7 |Anaconda, Inc.| (default, Oct 23 2018, 19:16:44)
->>>>>>> 47dda75fdafc7a11cf10e00e18c26065fc1ec35a
 >>> a = 0xf0117950
 >>> n = 4096
 >>> def rounddown(a,n): return a - a % n
@@ -69,11 +57,7 @@ Python 3.6.7 |Anaconda, Inc.| (default, Oct 23 2018, 19:16:44)
 '0xf0118000'
 ```
 
-<<<<<<< HEAD
-2. Incluir: Una sesión de GDB en la que, poniendo un breakpoint en la función boot_alloc(), se muestre el valor de end y nextfree al comienzo y fin de esa primera llamada a boot_alloc().
-=======
 2. Incluir: Una sesión de GDB en la que, poniendo un breakpoint en la función `boot_alloc()`, se muestre el valor de `end` y `nextfree` al comienzo y fin de esa primera llamada a `boot_alloc()`.
->>>>>>> 47dda75fdafc7a11cf10e00e18c26065fc1ec35a
 
 ```asm
 sisop_2019a_delmazo_souto TP1 % make gdb
@@ -124,30 +108,18 @@ Como se puede ver, se cumple todo lo planteado. `end` comienza en `0xf0117950`, 
 
 ### Memoria física: page_alloc
 
-<<<<<<< HEAD
-1. Responder: ¿en qué se diferencia page2pa() de page2kva()?
-
-Como bien indican sus nombres, `page2pa()` y `page2kva()` se diferencian en el valor de retorno. Ambas reciben una página física, pero `page2pa()` devuelve su dirección física (de tipo `physaddr_t`) mientrás que `page2kva()` devuelve la dirección virtual (kernel virtual address), de tipo `void*`. 
-
-Incluso, `page2kva()` no es más que un llamado a `page2pa()` y luego a la función del preprocesador `KADDR()` que recibe una dirección física y devuelve la respectiva dirección virtual.
-   
-=======
 1. Responder: ¿en qué se diferencia `page2pa()` de `page2kva()`?
 
 Como bien indican sus nombres, `page2pa()` y `page2kva()` se diferencian en el valor de retorno. Ambas reciben una página física, pero `page2pa()` devuelve su dirección física (de tipo `physaddr_t`) mientrás que `page2kva()` devuelve la dirección virtual (kernel virtual address), de tipo `void*`.
 
 Incluso, `page2kva()` no es más que un llamado a `page2pa()` y luego a la función del preprocesador `KADDR()` que recibe una dirección física y devuelve la respectiva dirección virtual.
 
->>>>>>> 47dda75fdafc7a11cf10e00e18c26065fc1ec35a
 ### Large pages: map_region_large
 
 1. Responder: ¿cuánta memoria se ahorró de este modo? ¿Es una cantidad fija, o depende de la memoria física de la computadora?
 
 Se ahorran 4KB, que es el tamaño de un página, ya que se deja de usar `entry_pgtable` y se mapea la misma cantidad de memoria consecutiva (4MB) directamente con una *large page*.
 
-<<<<<<< HEAD
-Debido a que JOS se compila con la arquitectura de 32 bits i386, independientemente de cuál sea la memoria física disponible de la máquina, las páginas tendrán un tamaño de 4KB, y cómo lo que sea ahorra es crear a `entry_pgtable`, que tiene el tamaño de una página, se ahorra esa cantidad de bytes.
-=======
 Debido a que JOS se compila con la arquitectura de 32 bits i386, independientemente de cuál sea la memoria física disponible de la máquina, las páginas tendrán un tamaño de 4KB, y cómo lo que sea ahorra es crear a `entry_pgtable`, que tiene el tamaño de una página, se ahorra esa cantidad de bytes.
 
 ## TP2: Procesos de usuario (17/5/2019)
@@ -455,5 +427,3 @@ TRAP frame at 0xf01c1000
 [00001000] free env 00001000
 Destroyed the only environment - nothing more to do!
 ```
-
->>>>>>> 47dda75fdafc7a11cf10e00e18c26065fc1ec35a

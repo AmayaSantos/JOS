@@ -117,10 +117,7 @@ env_init(void)
 	for (i = 0; i < NENV - 1; i++) {
 		envs[i].env_id = 0;
 		envs[i].env_link = &envs[i+1];
-<<<<<<< HEAD
-=======
 		envs[i].env_status = ENV_FREE;
->>>>>>> 47dda75fdafc7a11cf10e00e18c26065fc1ec35a
 	}
 	env_free_list = &envs[0];
 	envs[NENV-1].env_link = NULL;
