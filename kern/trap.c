@@ -234,8 +234,9 @@ trap_dispatch(struct Trapframe *tf)
 			return;
 
 		case T_PGFLT:
-			if ((tf->tf_cs & 3) == 0)
+			if ((tf->tf_cs & 3) == 0) {
 				panic("trap_dispatch: page fault in ring 0.");
+			}
 			page_fault_handler(tf);
 			return;
 
