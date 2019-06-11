@@ -239,6 +239,14 @@ trap_dispatch(struct Trapframe *tf)
 			page_fault_handler(tf);
 			return;
 
+			// !!!! the first one is the correct one, but the other one is less likely to fail.
+		// case (IRQ_OFFSET + IRQ_TIMER):
+		case IRQ_OFFSET:
+			// !!!! no clue with lapic_eoi, just following orders.
+			lapic_eoi();
+			sched_yield();
+			return;
+
 		case T_SYSCALL:
 		{
 			struct PushRegs *regs = &tf->tf_regs;
