@@ -68,7 +68,8 @@ TRAPHANDLER(trap_handler17, T_ALIGN)
 TRAPHANDLER_NOEC(trap_handler18, T_MCHK)
 TRAPHANDLER_NOEC(trap_handler19, T_SIMDERR)
 
-# !!!! maybe with error
+// '''' timer_irq
+# !!!! maybe with error and use TRAPHANDLER
 # TRAPHANDLER_NOEC(trap_handler32, [IRQ_OFFSET + IRQ_TIMER])
 TRAPHANDLER_NOEC(trap_handler32, IRQ_OFFSET)
 
