@@ -434,3 +434,20 @@ Destroyed the only environment - nothing more to do!
 
 Responder: ¿cómo y por qué funciona la macro static_assert que define JOS?
 
+
+### Ejecución en paralelo (multi-core)
+
+#### multicore_init
+
+1. ¿Qué código copia, y a dónde, la siguiente línea de la función boot_aps()?
+
+`memmove(code, mpentry_start, mpentry_end - mpentry_start);`
+`
+
+Copia el código que se encuentra en *kern/mpentry.S*, a la dirección virtual `0xf0007000`, que mapea a la dirección física `0x7000` (`MPENTRY_PADDR`).
+
+2. ¿Para qué se usa la variable global `mpentry_kstack`? ¿Qué ocurriría si el espacio para este stack se reservara en el archivo *kern/mpentry.S*, de manera similar a `bootstack` en el archivo *kern/entry.S*?
+   
+Se utiliza porque cada CPU va a apuntar a un stack distinto. Si se reservara al igual que `bootstack`, entonces los stacks de cada CPU apuntarían a la misma memoria.
+
+3. Cuando QEMU corre con múltiples CPUs, éstas se muestran en GDB como hilos de ejecución separados. Mostrar una sesión de GDB en la que se muestre cómo va cambiando el valor de la variable global mpentry_kstack
