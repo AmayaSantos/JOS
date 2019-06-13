@@ -86,12 +86,13 @@ sys_exofork(void)
 
 	// LAB 4: Your code here.
 	// '''' sys_exofork
-	// !!!!! check all errors
 	struct Env *e;
 	envid_t cuenvid = sys_getenvid();
 
-	env_alloc(&e, cuenvid);
-	// !!!! check error of alloc
+	int err;
+	if ((err = env_alloc(&e, cuenvid)) < 0) {
+		return err;
+	}
 
 	e->env_status = ENV_NOT_RUNNABLE;
 	e->env_tf = curenv->env_tf;
@@ -119,16 +120,15 @@ sys_env_set_status(envid_t envid, int status)
 	// LAB 4: Your code here.
 	// '''' sys_exofork
 	struct Env *e;
-	// cprintf("\n!!!! enters\n");
 
-	// !!!! maybe return error of envid2env
 	if ((envid2env(envid, &e, 1)) < 0) {
-		// cprintf("\n!!!! bad env\n");
 		return -E_BAD_ENV;
 	}
 
-	// !!!!!
-	//	-E_INVAL if status is not a valid status for an environment.
+	if (status < ENV_FREE || status > ENV_NOT_RUNNABLE) {
+		return -E_INVAL;
+	}
+
 	e->env_status = status;
 
 	return 0;
@@ -177,12 +177,9 @@ sys_page_alloc(envid_t envid, void *va, int perm)
 
 	// LAB 4: Your code here.
 	// '''' sys_exofork
-	// !!!! check the parameters for correctness
 	struct Env *e;
 	struct PageInfo *p;
 
-	// !!!! or the caller doesn't have permission to change envid? I think that the 1 does it.
-	// !!!! maybe return error of envid2env
 	if ((envid2env(envid, &e, 1)) < 0) {
 		return -E_BAD_ENV;
 	}
@@ -240,12 +237,10 @@ sys_page_map(envid_t srcenvid, void *srcva, envid_t dstenvid, void *dstva, int p
 	struct PageInfo *p;
 	pte_t *pte;
 
-	// !!!! or the caller doesn't have permission to change envid?
 	if ((envid2env(srcenvid, &srce, 1)) < 0) {
 		return -E_BAD_ENV;
 	}
 
-	// !!!! or the caller doesn't have permission to change envid?
 	if ((envid2env(dstenvid, &dste, 1)) < 0) {
 		return -E_BAD_ENV;
 	}
@@ -296,8 +291,6 @@ sys_page_unmap(envid_t envid, void *va)
 	struct Env *e;
 	struct PageInfo *p;
 
-	// !!!! or the caller doesn't have permission to change envid?
-	// !!!! maybe return error of envid2env
 	if ((envid2env(envid, &e, 1)) < 0) {
 		return -E_BAD_ENV;
 	}

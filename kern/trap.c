@@ -121,11 +121,11 @@ trap_init(void)
 
 	// '''' timer_irq
 	// INTERRUPTS
-	// maybe 0 at the end
+	// maybe 0 at the end. certain that it is not trap
 	SETGATE(idt[IRQ_OFFSET + IRQ_TIMER], 0, GD_KT, trap_handler32, 3);
 
 	// SYSCALL
-	// !!!! maybe add istrap
+	// !!!! maybe add istrap, but almost certain it is not.
 	SETGATE(idt[T_SYSCALL], 0, GD_KT, trap_handler48, 3);
 
 
@@ -246,8 +246,6 @@ trap_dispatch(struct Trapframe *tf)
 		// !!!! the first one is the correct one, but the other one is less likely to fail.
 		// case (IRQ_OFFSET + IRQ_TIMER):
 		case IRQ_OFFSET:
-			// !!!!! what to do with eflags
-			// !!!! no clue with lapic_eoi, just following orders.
 			lapic_eoi();
 			sched_yield();
 			return;
