@@ -443,3 +443,29 @@ Lo que hace JOS es incluir su propia versión modificada de `assert.h`, redefini
 ```
 
 Esta implementación logra la misma funcionalidad, partiendo de la idea de que un switch no puede tener definido dos veces el mismo caso (se generaría `error: duplicate case value`). Entonces, de ser x igual a cero, se estaría teniendo un switch con dos veces el mismo caso (el cero) definido, resultando en un error de compilación.
+
+### Planificador y múltiples procesos: env_return
+
+1. Responder: al terminar un proceso su función `umain()` ¿dónde retoma la ejecución el kernel? Describir la secuencia de llamadas desde que termina `umain()` hasta que el kernel dispone del proceso.
+
+Analizando el ELF de un proceso (en este caso `/user/hello`) con el comando `readelf` y luego leyendo sus instrucciones en assembly, se puede ver (viendo la llamada que hace `libmain` pasada la llamada a `umain`) que la secuencia de instrucciones luego de llamar a `umain` consiste en llamar a `exit` (includo en `/lib/exit.c`). Siendo que `exit` la provee JOS, se puede seguir la traza en el código de JOS (y no en assembly).
+ 
+ Lo que hace JOS en `exit` es llamar a `sys_env_destroy` (la syscall que provee para destruir procesos, en `/lib/syscall.c`), que no es más que un wrapper a `syscall(SYS_env_destroy, 1, envid, 0, 0, 0, 0);`. Esto llamará a `env_destroy`, quien llama a `sched_yield` y se finaliza en `sched_halt`. 
+ 
+2. Responder: ¿en qué cambia la función `env_destroy()` en este TP, respecto al TP anterior?
+
+El TP previo contenía el siguiente `env_destroy()`:
+
+```c
+void
+env_destroy(struct Env *e)
+{
+	env_free(e);
+
+	cprintf("Destroyed the only environment - nothing more to do!\n");
+	while (1)
+		monitor(NULL);
+}
+``` 
+
+La diferencia con el TP actual reside en que ahora tenemos soporte para múltiples CPUs y un scheduler de procesos. Entonces, hay que preguntarse si el entorno a destruir es el que esta corriendo en esta CPU o si esta corriendo en otras. Si esta corriendo en la CPU actual, entonces luego de ser liberado habrá que llamar al scheduler para conseguir el siguiente entorno a ejecutar. De estar corriendo en otra CPU, no se llama a `env_free`, si no que solamente se lo marca como un proceso zombie (`ENV_DYING`), para que la próxima vez que aparezca en el kernel sea liberado.
