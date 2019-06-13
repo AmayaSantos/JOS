@@ -440,14 +440,98 @@ Responder: ¿cómo y por qué funciona la macro static_assert que define JOS?
 #### multicore_init
 
 1. ¿Qué código copia, y a dónde, la siguiente línea de la función boot_aps()?
-
 `memmove(code, mpentry_start, mpentry_end - mpentry_start);`
 `
 
-Copia el código que se encuentra en *kern/mpentry.S*, a la dirección virtual `0xf0007000`, que mapea a la dirección física `0x7000` (`MPENTRY_PADDR`).
+    Copia el código que se encuentra en *kern/mpentry.S*, a la dirección virtual `0xf0007000`, que mapea a la dirección física `0x7000` (`MPENTRY_PADDR`).
 
 2. ¿Para qué se usa la variable global `mpentry_kstack`? ¿Qué ocurriría si el espacio para este stack se reservara en el archivo *kern/mpentry.S*, de manera similar a `bootstack` en el archivo *kern/entry.S*?
    
-Se utiliza porque cada CPU va a apuntar a un stack distinto. Si se reservara al igual que `bootstack`, entonces los stacks de cada CPU apuntarían a la misma memoria.
+    Se utiliza porque cada CPU va a apuntar a un stack distinto. Si se reservara al igual que `bootstack`, entonces los stacks de cada CPU apuntarían a la misma memoria.
 
-3. Cuando QEMU corre con múltiples CPUs, éstas se muestran en GDB como hilos de ejecución separados. Mostrar una sesión de GDB en la que se muestre cómo va cambiando el valor de la variable global mpentry_kstack
+3. Cuando QEMU corre con múltiples CPUs, éstas se muestran en GDB como hilos de ejecución separados. Mostrar una sesión de GDB en la que se muestre cómo va cambiando el valor de la variable global mpentry_kstack:
+
+```
+    (gdb) watch mpentry_kstack
+    Hardware watchpoint 1: mpentry_kstack
+    (gdb) c
+    Continuando.
+    Se asume que la arquitectura objetivo es i386
+    => 0xf0100195 <boot_aps+140>:	mov    %esi,%ecx
+    
+    Thread 1 hit Hardware watchpoint 1: mpentry_kstack
+    
+    Old value = (void *) 0x0
+    New value = (void *) 0xf0247000 <percpu_kstacks+65536>
+    boot_aps () at kern/init.c:106
+    106			lapic_startap(c->cpu_id, PADDR(code));
+    (gdb) bt
+    #0  boot_aps () at kern/init.c:106
+    #1  0xf010021e in i386_init () at kern/init.c:55
+    #2  0xf0100049 in relocated () at kern/entry.S:86
+    (gdb) info threads
+      Id   Target Id         Frame 
+    * 1    Thread 1 (CPU#0 [running]) boot_aps () at kern/init.c:106
+      2    Thread 2 (CPU#1 [halted ]) 0x000fd412 in ?? ()
+      3    Thread 3 (CPU#2 [halted ]) 0x000fd412 in ?? ()
+      4    Thread 4 (CPU#3 [halted ]) 0x000fd412 in ?? ()
+    (gdb) c
+    Continuando.
+    => 0xf0100195 <boot_aps+140>:	mov    %esi,%ecx
+    
+    Thread 1 hit Hardware watchpoint 1: mpentry_kstack
+    
+    Old value = (void *) 0xf0247000 <percpu_kstacks+65536>
+    New value = (void *) 0xf024f000 <percpu_kstacks+98304>
+    boot_aps () at kern/init.c:106
+    106			lapic_startap(c->cpu_id, PADDR(code));
+    (gdb) info threads
+      Id   Target Id         Frame 
+    * 1    Thread 1 (CPU#0 [running]) boot_aps () at kern/init.c:106
+      2    Thread 2 (CPU#1 [running]) 0xf01002ac in mp_main () at kern/init.c:124
+      3    Thread 3 (CPU#2 [halted ]) 0x000fd412 in ?? ()
+      4    Thread 4 (CPU#3 [halted ]) 0x000fd412 in ?? ()
+    (gdb) thread 2
+    [Switching to thread 2 (Thread 2)]
+    #0  0xf01002ac in mp_main () at kern/init.c:124
+    124		xchg(&thiscpu->cpu_status, CPU_STARTED); // tell boot_aps() we're up
+    (gdb) bt
+    #0  0xf01002ac in mp_main () at kern/init.c:124
+    #1  0x00007062 in ?? ()
+    (gdb) p cpunum()
+    Could not fetch register "orig_eax"; remote failure reply 'E14'
+    (gdb) thread 1
+    [Switching to thread 1 (Thread 1)]
+    #0  boot_aps () at kern/init.c:106
+    106			lapic_startap(c->cpu_id, PADDR(code));
+    (gdb) p cpunum()
+    Could not fetch register "orig_eax"; remote failure reply 'E14'
+    (gdb) c
+    Continuando.
+    => 0xf0100195 <boot_aps+140>:	mov    %esi,%ecx
+    
+    Thread 1 hit Hardware watchpoint 1: mpentry_kstack
+    
+    Old value = (void *) 0xf024f000 <percpu_kstacks+98304>
+    New value = (void *) 0xf0257000 <percpu_kstacks+131072>
+    boot_aps () at kern/init.c:106
+    106			lapic_startap(c->cpu_id, PADDR(code));
+    (gdb) info threads
+      Id   Target Id         Frame 
+    * 1    Thread 1 (CPU#0 [running]) boot_aps () at kern/init.c:106
+      2    Thread 2 (CPU#1 [running]) 0xf01002ac in mp_main () at kern/init.c:124
+      3    Thread 3 (CPU#2 [running]) 0xf01002ac in mp_main () at kern/init.c:124
+      4    Thread 4 (CPU#3 [halted ]) 0x000fd412 in ?? ()
+    (gdb) bt
+    #0  boot_aps () at kern/init.c:106
+    #1  0xf010021e in i386_init () at kern/init.c:55
+    #2  0xf0100049 in relocated () at kern/entry.S:86
+    (gdb) thread 3
+    [Switching to thread 3 (Thread 3)]
+    #0  0xf01002ac in mp_main () at kern/init.c:124
+    124		xchg(&thiscpu->cpu_status, CPU_STARTED); // tell boot_aps() we're up
+    (gdb) p cpunum()
+    Could not fetch register "orig_eax"; remote failure reply 'E14'
+    (gdb) c
+    Continuando.
+```
