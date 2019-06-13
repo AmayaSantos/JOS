@@ -125,7 +125,7 @@ sys_env_set_status(envid_t envid, int status)
 		return -E_BAD_ENV;
 	}
 
-	if (status < ENV_FREE || status > ENV_NOT_RUNNABLE) {
+	if (status != ENV_RUNNABLE && status != ENV_NOT_RUNNABLE) {
 		return -E_INVAL;
 	}
 
