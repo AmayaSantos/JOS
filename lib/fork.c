@@ -58,6 +58,69 @@ duppage(envid_t envid, unsigned pn)
 	return 0;
 }
 
+// '''' fork_v0
+static void
+dup_or_share(envid_t dstenv, void *va, int perm)
+{
+	int r;
+
+	// This is NOT what you should do in your fork.
+	if ((r = sys_page_alloc(dstenv, va, PTE_P|PTE_U|PTE_W)) < 0)
+		panic("sys_page_alloc: %e", r);
+	if ((r = sys_page_map(dstenv, va, 0, UTEMP, PTE_P|PTE_U|PTE_W)) < 0)
+		panic("sys_page_map: %e", r);
+	memmove(UTEMP, va, PGSIZE);
+	if ((r = sys_page_unmap(0, UTEMP)) < 0)
+		panic("sys_page_unmap: %e", r);
+}
+
+envid_t
+fork_v0(void)
+{
+	// '''' fork_v0
+	int r;
+	envid_t envid;
+	uint8_t *addr;
+
+	envid = sys_exofork();
+	if (envid < 0)
+		panic("sys_exofork: %e", envid);
+	if (envid == 0) {
+		// We're the child.
+		// The copied value of the global variable 'thisenv'
+		// is no longer valid (it refers to the parent!).
+		// Fix it and return 0.
+		thisenv = &envs[ENVX(sys_getenvid())];
+		return 0;
+	}
+
+	// We're the parent.
+	// Eagerly copy our entire address space into the child.
+	for (addr = 0; (int) addr < UTOP; addr += PGSIZE) {
+		if (addr % (NPDENTRIES * NPTENTRIES) == 0) {
+			if ((PGOFF(uvpd((int) addr) & PTE_P) == 0)) {
+				continue;
+			}
+		}
+
+
+		int perm = PGOFF(uvpt[(int) addr]);
+
+		if ((perm & PTE_P) == PTE_P) {
+			dup_or_share(envid, addr, perm);
+		}
+	}
+
+	// Also copy the stack we are currently running on.
+	// !!!! duppage(envid, ROUNDDOWN(&addr, PGSIZE));
+
+	// Start the child environment running
+	if ((r = sys_env_set_status(envid, ENV_RUNNABLE)) < 0)
+		panic("sys_env_set_status: %e", r);
+
+	return envid;
+}
+
 //
 // User-level fork with copy-on-write.
 // Set up our page fault handler appropriately.
@@ -78,7 +141,8 @@ envid_t
 fork(void)
 {
 	// LAB 4: Your code here.
-	panic("fork not implemented");
+	// '''' fork_v0
+	return fork_v0();
 }
 
 // Challenge!
