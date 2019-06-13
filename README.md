@@ -535,3 +535,56 @@ Responder: ¿cómo y por qué funciona la macro static_assert que define JOS?
     (gdb) c
     Continuando.
 ```
+
+4. ¿Qué valor tendrá el registro *%eip* cuando se ejecute la línea `movl $(RELOC(entry_pgdir)), %eax` de *kern/mpentry.S*? ¿Se detiene en algún momento la ejecución si se pone un breakpoint en mpentry_start? ¿Por qué?
+
+    Redondeada a 12 bits, el *%eip* apuntará a la región de memoria `0x7000` (`MPENTRY_PADDR`), ya que todo el bloque de código (mucho menor a una página) de *mpentry.S* se mapeó allí.
+    No se detiene al poner in breakpoint en *mpentry_start* porque el registro *%eip* nunca llega a pasar por esa dirección, ya que el código ese se mapeó a o
+    
+5. Con GDB, mostrar el valor exacto de *%eip* y `mpentry_kstack` cuando se ejecuta la instrucción anterior en el último AP.
+
+```
+    (gdb) b *0x7000 thread 4
+    Punto de interrupción 1 at 0x7000
+    (gdb) c
+    Continuando.
+    
+    Thread 2 received signal SIGTRAP, Trace/breakpoint trap.
+    [Cambiando a Thread 2]
+    Se asume que la arquitectura objetivo es i8086
+    [ 700:   0]    0x7000:	cli    
+    0x00000000 in ?? ()
+    (gdb) disable 1
+    (gdb) si 10
+    Se asume que la arquitectura objetivo es i386
+    => 0x7020:	mov    $0x10,%ax
+    0x00007020 in ?? ()
+    (gdb) x10i $eip
+    orden indefinida: «x10i». Intente con «help»
+    (gdb) x/10i $eip
+    => 0x7020:	mov    $0x10,%ax
+       0x7024:	mov    %eax,%ds
+       0x7026:	mov    %eax,%es
+       0x7028:	mov    %eax,%ss
+       0x702a:	mov    $0x0,%ax
+       0x702e:	mov    %eax,%fs
+       0x7030:	mov    %eax,%gs
+       0x7032:	mov    $0x11f000,%eax
+       0x7037:	mov    %eax,%cr3
+       0x703a:	mov    %cr4,%eax
+    (gdb) watch $eax == 0x11f000
+    Watchpoint 2: $eax == 0x11f000
+    (gdb) c
+    Continuando.
+    => 0x7037:	mov    %eax,%cr3
+    
+    Thread 2 hit Watchpoint 2: $eax == 0x11f000
+    
+    Old value = 0
+    New value = 1
+    0x00007037 in ?? ()
+    (gdb) p $eip
+    $1 = (void (*)()) 0x7037
+    (gdb)  p mpentry_kstack
+    $2 = (void *) 0x0
+```
