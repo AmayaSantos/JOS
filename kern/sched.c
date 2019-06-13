@@ -30,6 +30,7 @@ sched_yield(void)
 
 	// LAB 4: Your code here.
 
+	// '''' sched_yield
 	// This iterates starting from the current environment until the end of envs.
 	// cprintf("\n !!!! \n");
 
@@ -39,7 +40,6 @@ sched_yield(void)
 		// cprintf(" !!!! idle = envs\n");
 		idle = envs;
 	}
-
 
 	for (; idle < envs + NENV; idle++) {
 		/*
