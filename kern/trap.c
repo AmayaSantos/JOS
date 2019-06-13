@@ -91,7 +91,7 @@ trap_init(void)
 	void trap_handler17();
 	void trap_handler18();
 	void trap_handler19();
-	void trap_handler20();
+	void trap_handler20(); // !!!! This is here but there is no SETGATE, in array trapname it is only named until 19, maybe remove this.
 
 	void trap_handler32();
 
@@ -120,7 +120,7 @@ trap_init(void)
 
 	// INTERRUPTS
 	// maybe 0 at the end
-	SETGATE(idt[IRQ_OFFSET + IRQ_TIMER], 0, GD_KT, trap_handler19, 3);
+	SETGATE(idt[IRQ_OFFSET + IRQ_TIMER], 0, GD_KT, trap_handler32, 3);
 
 	// SYSCALL
 	// !!!! maybe add istrap
