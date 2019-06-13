@@ -91,14 +91,16 @@ trap_init(void)
 	void trap_handler17();
 	void trap_handler18();
 	void trap_handler19();
-	void trap_handler20();
+	void trap_handler20(); // !!!! This is here but there is no SETGATE, in array trapname it is only named until 19, maybe remove this.
+
+	void trap_handler32();
 
 	void trap_handler48();
 
 	SETGATE(idt[T_DIVIDE], 1, GD_KT, trap_handler0, 0);
 	SETGATE(idt[T_DEBUG], 1, GD_KT, trap_handler1, 0);
 	SETGATE(idt[T_NMI], 1, GD_KT, trap_handler2, 0);
-	SETGATE(idt[T_BRKPT], 1, GD_KT, trap_handler3, 3); // Exception is able to be thrown from user programs
+	SETGATE(idt[T_BRKPT], 1, GD_KT, trap_handler3, 3); // Exception is able to be thrown from user programs.
 	SETGATE(idt[T_OFLOW], 1, GD_KT, trap_handler4, 0);
 	SETGATE(idt[T_BOUND], 1, GD_KT, trap_handler5, 0);
 	SETGATE(idt[T_ILLOP], 1, GD_KT, trap_handler6, 0);
@@ -116,7 +118,12 @@ trap_init(void)
 	SETGATE(idt[T_MCHK], 1, GD_KT, trap_handler18, 0);
 	SETGATE(idt[T_SIMDERR], 1, GD_KT, trap_handler19, 0);
 
+	// INTERRUPTS
+	// maybe 0 at the end
+	SETGATE(idt[IRQ_OFFSET + IRQ_TIMER], 0, GD_KT, trap_handler32, 3);
+
 	// SYSCALL
+	// !!!! maybe add istrap
 	SETGATE(idt[T_SYSCALL], 0, GD_KT, trap_handler48, 3);
 
 
@@ -227,9 +234,18 @@ trap_dispatch(struct Trapframe *tf)
 			return;
 
 		case T_PGFLT:
-			if ((tf->tf_cs & 3) == 0)
+			if ((tf->tf_cs & 3) == 0) {
 				panic("trap_dispatch: page fault in ring 0.");
+			}
 			page_fault_handler(tf);
+			return;
+
+			// !!!! the first one is the correct one, but the other one is less likely to fail.
+		// case (IRQ_OFFSET + IRQ_TIMER):
+		case IRQ_OFFSET:
+			// !!!! no clue with lapic_eoi, just following orders.
+			lapic_eoi();
+			sched_yield();
 			return;
 
 		case T_SYSCALL:
