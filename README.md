@@ -432,5 +432,14 @@ Destroyed the only environment - nothing more to do!
 
 ### Múltiples CPUs: static_assert
 
-Responder: ¿cómo y por qué funciona la macro static_assert que define JOS?
+Responder: ¿cómo y por qué funciona la macro `static_assert` que define JOS?
 
+`static_assert` (presente en la biblioteca `assert.h`) es un macro de C introducido en 2011 por el standard C11. Lo único que hace el macro es expandir la keyword `_Static_assert`, que evalua en tiempo de compilación frente al 0. De ser la expresión evaluada igual a 0, es falsa, y se lanza un error de compilación. De ser distinto a 0, es verdadera, y todo sigue su rumbo normalmente.
+
+Lo que hace JOS es incluir su propia versión modificada de `assert.h`, redefiniendo el macro `static_assert`. En vez de expandir a `_Static_assert`, JOS provee su propia implementación:
+
+```c
+#define static_assert(x)	switch (x) case 0: case (x):
+```
+
+Esta implementación logra la misma funcionalidad, partiendo de la idea de que un switch no puede tener definido dos veces el mismo caso (se generaría `error: duplicate case value`). Entonces, de ser x igual a cero, se estaría teniendo un switch con dos veces el mismo caso (el cero) definido, resultando en un error de compilación.
