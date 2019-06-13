@@ -16,6 +16,9 @@ header-includes: |
  \renewenvironment{Shaded}{\begin{leftbar_mod}\begin{oldshaded}}{\end{oldshaded}\end{leftbar_mod}}
     \let\oldverbatim\verbatim
  \renewenvironment{verbatim}{\begin{leftbar_mod}\begin{oldverbatim}}{\end{oldverbatim}\end{leftbar_mod}}
+ \hypersetup { colorlinks = true, urlcolor = blue }
+ \usepackage{caption}
+ \captionsetup[figure]{labelformat=empty} 
 include-before: |
  \renewcommand{\texttt}[1]{\OldTexttt{\color{magenta}{#1}}}
 ---
@@ -28,7 +31,7 @@ Respuestas teóricas de los distintos trabajos prácticos/labs de Sistemas Opera
 
 ### Memoria física: boot_alloc_pos
 
-1. Inlcuir: Un cálculo manual de la primera dirección de memoria que devolverá `boot_alloc()` tras el arranque. Se puede calcular a partir del binario compilado (obj/kern/kernel), usando los comandos `readelf` y/o `nm` y operaciones matemáticas.
+1. Incluir: Un cálculo manual de la primera dirección de memoria que devolverá `boot_alloc()` tras el arranque. Se puede calcular a partir del binario compilado (obj/kern/kernel), usando los comandos `readelf` y/o `nm` y operaciones matemáticas.
 
 Truncando la salida de ambos comandos (con `grep`), vemos las siguientes lineas:
 
@@ -432,7 +435,7 @@ Destroyed the only environment - nothing more to do!
 
 ### Múltiples CPUs: static_assert
 
-Responder: ¿cómo y por qué funciona la macro `static_assert` que define JOS?
+1. Responder: ¿cómo y por qué funciona la macro `static_assert` que define JOS?
 
 `static_assert` (presente en la biblioteca `assert.h`) es un macro de C introducido en 2011 por el standard C11. Lo único que hace el macro es expandir la keyword `_Static_assert`, que evalua en tiempo de compilación frente al 0. De ser la expresión evaluada igual a 0, es falsa, y se lanza un error de compilación. De ser distinto a 0, es verdadera, y todo sigue su rumbo normalmente.
 
@@ -469,3 +472,78 @@ env_destroy(struct Env *e)
 ``` 
 
 La diferencia con el TP actual reside en que ahora tenemos soporte para múltiples CPUs y un scheduler de procesos. Entonces, hay que preguntarse si el entorno a destruir es el que esta corriendo en esta CPU o si esta corriendo en otras. Si esta corriendo en la CPU actual, entonces luego de ser liberado habrá que llamar al scheduler para conseguir el siguiente entorno a ejecutar. De estar corriendo en otra CPU, no se llama a `env_free`, si no que solamente se lo marca como un proceso zombie (`ENV_DYING`), para que la próxima vez que aparezca en el kernel sea liberado.
+
+### Planificador y múltiples procesos: sys_yield
+
+1. Leer y estudiar el código del programa `user/yield.c`. Cambiar la función `i386_init()` para lanzar tres instancias de dicho programa, y mostrar y explicar la salida de `make qemu-nox`.
+
+El código de `yield.c` es:
+
+```c
+#include <inc/lib.h>
+
+void
+umain(int argc, char **argv)
+{
+	int i;
+
+	cprintf("Hello, I am environment %08x.\n", thisenv->env_id);
+	for (i = 0; i < 5; i++) {
+		sys_yield();
+		cprintf("Back in environment %08x, iteration %d.\n",
+			thisenv->env_id, i);
+	}
+	cprintf("All done in environment %08x.\n", thisenv->env_id);
+}
+```
+
+Este código  entra a un ciclo de 5 iteraciones donde llama a `sys_yield` (que es solamente una llamada al scheduler Round Robin, en `sched_yield`).
+
+La modificación a `i386_init` es:
+
+```c
+ENV_CREATE(user_yield, ENV_TYPE_USER);
+ENV_CREATE(user_yield, ENV_TYPE_USER);
+ENV_CREATE(user_yield, ENV_TYPE_USER);
+``` 
+
+La salida de `make qemu-nox` es:
+
+```c
+[00000000] new env 00001000
+[00000000] new env 00001001
+[00000000] new env 00001002
+Hello, I am environment 00001000.
+Hello, I am environment 00001001.
+Hello, I am environment 00001002.
+Back in environment 00001000, iteration 0.
+Back in environment 00001001, iteration 0.
+Back in environment 00001002, iteration 0.
+Back in environment 00001000, iteration 1.
+Back in environment 00001001, iteration 1.
+Back in environment 00001002, iteration 1.
+Back in environment 00001000, iteration 2.
+Back in environment 00001001, iteration 2.
+Back in environment 00001002, iteration 2.
+Back in environment 00001000, iteration 3.
+Back in environment 00001001, iteration 3.
+Back in environment 00001002, iteration 3.
+Back in environment 00001000, iteration 4.
+All done in environment 00001000.
+[00001000] exiting gracefully
+[00001000] free env 00001000
+Back in environment 00001001, iteration 4.
+All done in environment 00001001.
+[00001001] exiting gracefully
+[00001001] free env 00001001
+Back in environment 00001002, iteration 4.
+All done in environment 00001002.
+[00001002] exiting gracefully
+[00001002] free env 00001002
+```
+
+Esta salida es un perfecto test para el scheduler. Como se puede ver, los procesos (que se van desalojando a sí mismo) le entregan el poder al scheduler, y al ser un Round Robin entre tres procesos iguales, la distribución de tiempo es enteramente justa (fair) y circular. Se corre el proceso 0, en su primera iteración, luego el proceso 1, en su primera iteración, luego el tercer proceso en su primera iteracion y así hasta completar las 5 iteraciones de los 3 procesos. 
+
+La secuencia de instrucciones es, básicamente, la siguiente imagen: 
+
+![Round Robin, [Operating Systems: Three Easy Pieces, Chapter 7, Arpaci-Dusseau]((http://pages.cs.wisc.edu/~remzi/OSTEP/))](roundrobin.png){width=350px}
