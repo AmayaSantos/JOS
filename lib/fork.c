@@ -97,18 +97,32 @@ fork_v0(void)
 	// We're the parent.
 	// Eagerly copy our entire address space into the child.
 	for (addr = 0; (int) addr < UTOP; addr += PGSIZE) {
+
+		if ((PGOFF(uvpd[PDX(addr)]) & PTE_P) == 0) {
+			continue;
+		}
+
+		int perm = PGOFF(uvpt[PTX(addr)]);
+
+		if ((perm | PTE_P) == PTE_P && (perm | PTE_U) == PTE_U) {
+			dup_or_share(envid, (void*) PGNUM(addr), perm);
+		}
+
+		/*
 		if (addr % (NPDENTRIES * NPTENTRIES) == 0) {
 			if ((PGOFF(uvpd((int) addr) & PTE_P) == 0)) {
 				continue;
 			}
 		}
+		 */
 
-
+		/*
 		int perm = PGOFF(uvpt[(int) addr]);
 
 		if ((perm & PTE_P) == PTE_P) {
 			dup_or_share(envid, addr, perm);
 		}
+		 */
 	}
 
 	// Also copy the stack we are currently running on.
