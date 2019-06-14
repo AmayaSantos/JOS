@@ -75,7 +75,7 @@ dup_or_share(envid_t dstenv, void *va, int perm)
 		if ((r = sys_page_unmap(0, UTEMP)) < 0)
 			panic("sys_page_unmap: %e", r);
 	} else {
-		if ((r = sys_page_map(dstenv, va, 0, va, perm)) < 0)
+		if ((r = sys_page_map(0, va, dstenv, va, perm)) < 0)
 			panic("sys_page_map: %e", r);
 	}
 }
