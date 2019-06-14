@@ -65,13 +65,19 @@ dup_or_share(envid_t dstenv, void *va, int perm)
 	int r;
 
 	// This is NOT what you should do in your fork.
-	if ((r = sys_page_alloc(dstenv, va, PTE_P|PTE_U|PTE_W)) < 0)
-		panic("sys_page_alloc: %e", r);
-	if ((r = sys_page_map(dstenv, va, 0, UTEMP, PTE_P|PTE_U|PTE_W)) < 0)
-		panic("sys_page_map: %e", r);
-	memmove(UTEMP, va, PGSIZE);
-	if ((r = sys_page_unmap(0, UTEMP)) < 0)
-		panic("sys_page_unmap: %e", r);
+
+	if ((perm & PTE_W) == PTE_W) {
+		if ((r = sys_page_alloc(dstenv, va, perm)) < 0)
+			panic("sys_page_alloc: %e", r);
+		if ((r = sys_page_map(dstenv, va, 0, UTEMP, perm)) < 0)
+			panic("sys_page_map: %e", r);
+		memmove(UTEMP, va, PGSIZE);
+		if ((r = sys_page_unmap(0, UTEMP)) < 0)
+			panic("sys_page_unmap: %e", r);
+	} else {
+		if ((r = sys_page_map(dstenv, va, 0, va, perm)) < 0)
+			panic("sys_page_map: %e", r);
+	}
 }
 
 envid_t
@@ -98,31 +104,15 @@ fork_v0(void)
 	// Eagerly copy our entire address space into the child.
 	for (addr = 0; (int) addr < UTOP; addr += PGSIZE) {
 
-		if ((PGOFF(uvpd[PDX(addr)]) & PTE_P) == 0) {
+		if ((PGOFF(uvpd[PDX(addr)]) & PTE_P) != PTE_P) {
 			continue;
 		}
 
-		int perm = PGOFF(uvpt[PTX(addr)]);
-
-		if ((perm | PTE_P) == PTE_P && (perm | PTE_U) == PTE_U) {
-			dup_or_share(envid, (void*) PGNUM(addr), perm);
-		}
-
-		/*
-		if (addr % (NPDENTRIES * NPTENTRIES) == 0) {
-			if ((PGOFF(uvpd((int) addr) & PTE_P) == 0)) {
-				continue;
-			}
-		}
-		 */
-
-		/*
-		int perm = PGOFF(uvpt[(int) addr]);
+		int perm = PGOFF(uvpt[PGNUM(addr)]);
 
 		if ((perm & PTE_P) == PTE_P) {
-			dup_or_share(envid, addr, perm);
+			dup_or_share(envid, addr, perm & PTE_SYSCALL);
 		}
-		 */
 	}
 
 	// Also copy the stack we are currently running on.
