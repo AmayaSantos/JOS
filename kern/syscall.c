@@ -190,7 +190,7 @@ sys_page_alloc(envid_t envid, void *va, int perm)
 	}
 
 	if ((PTE_P & perm) == 0 || (PTE_U & perm) == 0 ||
-			((PTE_AVAIL | PTE_P | PTE_W | PTE_U) & perm) != perm) {
+			(PTE_SYSCALL & perm) != perm) {
 		cprintf("%x - %x\n", PTE_SYSCALL, perm);
 		cprintf("sys_page_alloc. 2 fails: %d (-E_BAD_ENV)\n", -E_BAD_ENV);
 		return -E_INVAL;
@@ -266,7 +266,7 @@ sys_page_map(envid_t srcenvid, void *srcva, envid_t dstenvid, void *dstva, int p
 	}
 
 	if ((PTE_P & perm) == 0 || (PTE_U & perm) == 0 ||
-		((PTE_AVAIL | PTE_P | PTE_W | PTE_U) & perm) != perm) {
+		(PTE_SYSCALL & perm) != perm) {
 		cprintf("sys_page_map. 5 fails: %d (-E_INVAL)\n", -E_INVAL);
 		return -E_INVAL;
 	}
@@ -367,6 +367,7 @@ sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 		return -E_BAD_ENV;
 	}
 
+	// If fails, set env_ipc_perm to 0.
 	e->env_ipc_perm = 0;
 
 	if (!e->env_ipc_recving) {
@@ -379,8 +380,9 @@ sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 	}
 
 	// Repeated in page_alloc.
-	if ((PTE_P & perm) == 0 || (PTE_U & perm) == 0 ||
-		((PTE_AVAIL | PTE_P | PTE_W | PTE_U) & perm) != perm) {
+	if ((int) srcva < UTOP && ((PTE_P & perm) == 0 || (PTE_U & perm) == 0 ||
+		(PTE_SYSCALL & perm) != perm)) {
+		cprintf("%x - %x\n", perm, PTE_SYSCALL);
 		cprintf("sys_ipc_try_send. 2 fails: %d (-E_INVAL)\n", -E_INVAL);
 		return -E_INVAL;
 	}
@@ -390,7 +392,6 @@ sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 		return -E_INVAL;
 	}
 
-	// !!!! who knows
 	if ((perm & PTE_W) == PTE_W && (PGOFF(*pte) & PTE_W) != PTE_W) {
 		cprintf("%x - %x\n", perm, PGOFF(*pte));
 		cprintf("sys_ipc_try_send. 4 fails: %d (-E_INVAL)\n", -E_INVAL);
