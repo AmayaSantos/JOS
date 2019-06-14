@@ -363,6 +363,7 @@ sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 	pte_t *pte;
 
 	if ((envid2env(envid, &e, 0)) < 0) {
+		cprintf("sys_ipc_try_send. fails: %d (-E_BAD_ENV)\n", -E_BAD_ENV);
 		return -E_BAD_ENV;
 	}
 
@@ -372,34 +373,39 @@ sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 		return -E_IPC_NOT_RECV;
 	}
 
-	// !!!!! tricky
 	if ((int) srcva < UTOP && (int) srcva % PGSIZE != 0) {
+		cprintf("sys_ipc_try_send. 1 fails: %d (-E_INVAL)\n", -E_INVAL);
 		return -E_INVAL;
 	}
 
 	// Repeated in page_alloc.
 	if ((PTE_P & perm) == 0 || (PTE_U & perm) == 0 ||
 		((PTE_AVAIL | PTE_P | PTE_W | PTE_U) & perm) != perm) {
+		cprintf("sys_ipc_try_send. 2 fails: %d (-E_INVAL)\n", -E_INVAL);
 		return -E_INVAL;
 	}
 
 	if ((int) srcva < UTOP && (p = page_lookup(curenv->env_pgdir, srcva, &pte)) == NULL) {
+		cprintf("sys_ipc_try_send. 3 fails: %d (-E_INVAL)\n", -E_INVAL);
 		return -E_INVAL;
 	}
 
 	// !!!! who knows
-	if ((perm & PTE_W) == PTE_W && (PGOFF(pte) & PTE_W) != PTE_W) {
+	if ((perm & PTE_W) == PTE_W && (PGOFF(*pte) & PTE_W) != PTE_W) {
+		cprintf("%x - %x\n", perm, PGOFF(*pte));
+		cprintf("sys_ipc_try_send. 4 fails: %d (-E_INVAL)\n", -E_INVAL);
 		return -E_INVAL;
 	}
 
 	if ((int) e->env_ipc_dstva < UTOP) {
 		if ((page_insert(e->env_pgdir, p, e->env_ipc_dstva, perm)) < 0) {
+			cprintf("sys_ipc_try_send. fails: %d (-E_NO_MEM)\n", -E_NO_MEM);
 			return -E_NO_MEM;
 		}
 	}
 
 	e->env_ipc_recving = 0;
-	e->env_ipc_from = envid;
+	e->env_ipc_from = curenv->env_id;
 	e->env_ipc_value = value;
 	e->env_ipc_perm = perm;
 
@@ -424,7 +430,6 @@ sys_ipc_recv(void *dstva)
 {
 	// LAB 4: Your code here.
 	// '''' sys_ipc_recv
-	// !!!!! tricky
 	if ((int) dstva < UTOP && (int) dstva % PGSIZE != 0) {
 		return  -E_INVAL;
 	}
