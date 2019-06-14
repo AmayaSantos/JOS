@@ -24,24 +24,24 @@ ipc_recv(envid_t *from_env_store, void *pg, int *perm_store)
 {
 	// LAB 4: Your code here.
 	// '''' ipc_recv
-	int err;
+	int r;
 
 	if (!pg) {
 		pg = (void*) UTOP;
 	}
 
-	err = sys_ipc_recv(pg);
+	r = sys_ipc_recv(pg);
 
 	if (from_env_store) {
-		*from_env_store = err < 0 ? 0 : thisenv->env_ipc_from;
+		*from_env_store = r < 0 ? 0 : thisenv->env_ipc_from;
 	}
 
 	if (perm_store) {
-		*perm_store = err < 0 ? 0 : thisenv->env_ipc_perm;
+		*perm_store = r < 0 ? 0 : thisenv->env_ipc_perm;
 	}
 
 	if (err < 0) {
-		return err;
+		return r;
 	}
 
 	return thisenv->env_ipc_value;
