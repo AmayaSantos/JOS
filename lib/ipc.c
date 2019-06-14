@@ -23,8 +23,28 @@ int32_t
 ipc_recv(envid_t *from_env_store, void *pg, int *perm_store)
 {
 	// LAB 4: Your code here.
-	panic("ipc_recv not implemented");
-	return 0;
+	// '''' ipc_recv
+	int err;
+
+	if (!pg) {
+		pg = (void*) UTOP;
+	}
+
+	err = sys_ipc_recv(pg);
+
+	if (from_env_store) {
+		*from_env_store = err < 0 ? 0 : thisenv->env_ipc_from;
+	}
+
+	if (perm_store) {
+		*perm_store = err < 0 ? 0 : thisenv->env_ipc_perm;
+	}
+
+	if (err < 0) {
+		return err;
+	}
+
+	return thisenv->env_ipc_value;
 }
 
 // Send 'val' (and 'pg' with 'perm', if 'pg' is nonnull) to 'toenv'.

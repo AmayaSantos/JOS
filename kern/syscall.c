@@ -364,7 +364,19 @@ static int
 sys_ipc_recv(void *dstva)
 {
 	// LAB 4: Your code here.
-	panic("sys_ipc_recv not implemented");
+	// '''' sys_ipc_recv
+	if ((int) dstva < UTOP) {
+		return  -E_INVAL;
+	}
+
+	curenv->env_status = ENV_NOT_RUNNABLE;
+	curenv->env_ipc_recving = 1;
+	curenv->env_ipc_dstva = dstva;
+
+	curenv->env_tf.tf_regs.reg_eax = 0;
+
+	sched_yield;
+
 	return 0;
 }
 
@@ -409,6 +421,10 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 
 		case SYS_page_unmap:
 			return sys_page_unmap(a1, (void*) a2);
+
+		// '''' sys_ipc_recv
+		case SYS_ipc_recv:
+			return sys_ipc_recv((void*) a1);
 
 		default:
 			return -E_INVAL;
