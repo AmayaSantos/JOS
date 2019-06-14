@@ -185,11 +185,14 @@ sys_page_alloc(envid_t envid, void *va, int perm)
 	}
 
 	if ((uintptr_t) va >= UTOP || ROUNDDOWN(va, PGSIZE) != va) {
+		cprintf("sys_page_alloc. 1 fails: %d (-E_BAD_ENV)\n", -E_BAD_ENV);
 		return -E_INVAL;
 	}
 
 	if ((PTE_P & perm) == 0 || (PTE_U & perm) == 0 ||
 			((PTE_AVAIL | PTE_P | PTE_W | PTE_U) & perm) != perm) {
+		cprintf("%x - %x\n", PTE_SYSCALL, perm);
+		cprintf("sys_page_alloc. 2 fails: %d (-E_BAD_ENV)\n", -E_BAD_ENV);
 		return -E_INVAL;
 	}
 
@@ -238,35 +241,43 @@ sys_page_map(envid_t srcenvid, void *srcva, envid_t dstenvid, void *dstva, int p
 	pte_t *pte;
 
 	if ((envid2env(srcenvid, &srce, 1)) < 0) {
+		cprintf("sys_page_map. fails: %d (-E_BAD_ENV)\n", -E_BAD_ENV);
 		return -E_BAD_ENV;
 	}
 
 	if ((envid2env(dstenvid, &dste, 1)) < 0) {
+		cprintf("sys_page_map. 1 fails: %d (-E_BAD_ENV)\n", -E_BAD_ENV);
 		return -E_BAD_ENV;
 	}
 
 	if ((uintptr_t) srcva >= UTOP || ROUNDDOWN(srcva, PGSIZE) != srcva) {
+		cprintf("sys_page_map. 2 fails: %d (-E_INVAL)\n", -E_INVAL);
 		return -E_INVAL;
 	}
 
 	if ((uintptr_t) dstva >= UTOP || ROUNDDOWN(dstva, PGSIZE) != dstva) {
+		cprintf("sys_page_map. 3 fails: %d (-E_INVAL)\n", -E_INVAL);
 		return -E_INVAL;
 	}
 
 	if ((p = page_lookup(srce->env_pgdir, srcva, &pte)) == NULL) {
+		cprintf("sys_page_map. 4 fails: %d (-E_INVAL)\n", -E_INVAL);
 		return -E_INVAL;
 	}
 
 	if ((PTE_P & perm) == 0 || (PTE_U & perm) == 0 ||
 		((PTE_AVAIL | PTE_P | PTE_W | PTE_U) & perm) != perm) {
+		cprintf("sys_page_map. 5 fails: %d (-E_INVAL)\n", -E_INVAL);
 		return -E_INVAL;
 	}
 
 	if ((perm & PTE_W) && !(*pte & PTE_W)) {
+		cprintf("sys_page_map. 6 fails: %d (-E_INVAL)\n", -E_INVAL);
 		return -E_INVAL;
 	}
 
 	if ((page_insert(dste->env_pgdir, p, dstva, perm)) < 0) {
+		cprintf("sys_page_map. fails: %d (-E_NO_MEM)\n", -E_INVAL);
 		page_free(p);
 		return -E_NO_MEM;
 	}
