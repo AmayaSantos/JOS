@@ -547,7 +547,28 @@ Esta salida es un perfecto test para el scheduler. Como se puede ver, los proces
 La secuencia de instrucciones es, básicamente, la siguiente imagen: 
 
 ![Round Robin, [Operating Systems: Three Easy Pieces, Chapter 7, Arpaci-Dusseau]((http://pages.cs.wisc.edu/~remzi/OSTEP/))](roundrobin.png){width=350px}
-=======
+
+### Creación dinámica de procesos: envid2env
+
+1. Responder qué ocurre en JOS, si un proceso llama a `sys_env_destroy(0)`
+
+El comentario (`// If envid is zero, return the current environment.`) dentro de la definición de `envid2env` es muy claro: Si se recibe 0, se entiende como el entorno actual. Como `sys_env_destroy` llama con ese parametro a `envid2env`, entonces con esta llamada se destruye el entorno actual.
+
+2. Responder qué ocurre en Linux, si un proceso llama a `kill(0, 9)`
+
+El manual de la syscall kill (con `man 2 kill`) explica que el primer parametro recibido es el `pid` y el segundo la señal a enviar. También dice: `If pid equals 0, then sig is sent to every process in the process group of the calling process.`. También (con `man 7 signal`) se nota que la señal 9 es `SIGKILL`, una señal para forzar la terminación de un proceso.
+
+`kill(0,9)` destruye todos los procesos del process group (del proceso que llamo a `kill`).
+ 
+
+3. Responder qué ocurre en JOS, si un proceso llama a `sys_env_destroy(-1)`
+
+`envid2env` sabe cual es el entorno porque hace `e = &envs[ENVX(envid)];` (siendo `ENVX` la función (macro) que devuelve el offset del entorno en el arreglo `envs`, `#define ENVX(envid)		((envid) & (NENV - 1))`). Es con la definición de `ENVX` que se nota que si se recibe -1, se devolvera el offset `NENV-1`, que equivale al último elemento del arreglo. La llamada `sys_env_destroy(-1)` destruye el entorno en la última posicion de `envs`.
+
+
+4. Responder qué ocurre en Linux, si un proceso llama a `kill(-1, 9)`
+
+El manual de la syscall también dice `If  pid  equals  -1,  then  sig  is sent to every process for which the calling process has permission to send signals, except for process 1 (init)`. Entonces, `kill(-1,9)` destruye todos los procesos a los que el proceso que llamo a `kill` puede alcanzar (por sus permisos). 
 
 ### Ejecución en paralelo: multicore_init
 
