@@ -93,6 +93,7 @@ trap_init(void)
 	void trap_handler19();
 	void trap_handler20(); // !!!! This is here but there is no SETGATE, in array trapname it is only named until 19, maybe remove this.
 
+	// '''' timer_irq
 	void trap_handler32();
 
 	void trap_handler48();
@@ -118,12 +119,13 @@ trap_init(void)
 	SETGATE(idt[T_MCHK], 1, GD_KT, trap_handler18, 0);
 	SETGATE(idt[T_SIMDERR], 1, GD_KT, trap_handler19, 0);
 
+	// '''' timer_irq
 	// INTERRUPTS
-	// maybe 0 at the end
+	// maybe 0 at the end. certain that it is not trap
 	SETGATE(idt[IRQ_OFFSET + IRQ_TIMER], 0, GD_KT, trap_handler32, 3);
 
 	// SYSCALL
-	// !!!! maybe add istrap
+	// !!!! maybe add istrap, but almost certain it is not.
 	SETGATE(idt[T_SYSCALL], 0, GD_KT, trap_handler48, 3);
 
 
@@ -157,21 +159,28 @@ trap_init_percpu(void)
 	// user space on that CPU.
 	//
 	// LAB 4: Your code here:
+	// '''' trap_init_percpu
+	int id = cpunum();
+	struct CpuInfo *cpu = &cpus[id];
+	struct Taskstate *ts = &cpu->cpu_ts;
 
 	// Setup a TSS so that we get the right stack
 	// when we trap to the kernel.
-	ts.ts_esp0 = KSTACKTOP;
-	ts.ts_ss0 = GD_KD;
-	ts.ts_iomb = sizeof(struct Taskstate);
+	ts->ts_esp0 = KSTACKTOP - id * (KSTKSIZE + KSTKGAP);
+	ts->ts_ss0 = GD_KD;
+	ts->ts_iomb = sizeof(struct Taskstate);
 
 	// Initialize the TSS slot of the gdt.
-	gdt[GD_TSS0 >> 3] =
-	        SEG16(STS_T32A, (uint32_t)(&ts), sizeof(struct Taskstate) - 1, 0);
-	gdt[GD_TSS0 >> 3].sd_s = 0;
+	uint16_t idx = (GD_TSS0 >> 3) + id;
+	uint16_t seg = idx << 3;
+
+	gdt[idx] =
+			SEG16(STS_T32A, (uint32_t)(ts), sizeof(struct Taskstate) - 1, 0);
+	gdt[idx].sd_s = 0;
 
 	// Load the TSS selector (like other segment selectors, the
 	// bottom three bits are special; we leave them 0)
-	ltr(GD_TSS0);
+	ltr(seg);
 
 	// Load the IDT
 	lidt(&idt_pd);
@@ -240,10 +249,10 @@ trap_dispatch(struct Trapframe *tf)
 			page_fault_handler(tf);
 			return;
 
-			// !!!! the first one is the correct one, but the other one is less likely to fail.
+		// '''' timer_irq
+		// !!!! the first one is the correct one, but the other one is less likely to fail.
 		// case (IRQ_OFFSET + IRQ_TIMER):
 		case IRQ_OFFSET:
-			// !!!! no clue with lapic_eoi, just following orders.
 			lapic_eoi();
 			sched_yield();
 			return;
@@ -309,6 +318,8 @@ trap(struct Trapframe *tf)
 		// Acquire the big kernel lock before doing any
 		// serious kernel work.
 		// LAB 4: Your code here.
+		// '''' kernel_lock
+		lock_kernel();
 		assert(curenv);
 
 		// Garbage collect if current enviroment is a zombie

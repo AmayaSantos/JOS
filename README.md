@@ -547,3 +547,155 @@ Esta salida es un perfecto test para el scheduler. Como se puede ver, los proces
 La secuencia de instrucciones es, básicamente, la siguiente imagen: 
 
 ![Round Robin, [Operating Systems: Three Easy Pieces, Chapter 7, Arpaci-Dusseau]((http://pages.cs.wisc.edu/~remzi/OSTEP/))](roundrobin.png){width=350px}
+=======
+
+### Ejecución en paralelo: multicore_init
+
+1. ¿Qué código copia, y a dónde, la siguiente línea de la función boot_aps()? `memmove(code, mpentry_start, mpentry_end - mpentry_start);`
+
+La linea copia el código que se encuentra en `kern/mpentry.S`, a la dirección virtual `0xf0007000`, que mapea a la dirección física `0x7000` (`MPENTRY_PADDR`).
+
+2. ¿Para qué se usa la variable global `mpentry_kstack`? ¿Qué ocurriría si el espacio para este stack se reservara en el archivo `kern/mpentry.S`, de manera similar a `bootstack` en el archivo `kern/entry.S`?
+   
+Se utiliza porque cada CPU va a apuntar a un stack distinto. Si se reservara al igual que `bootstack`, entonces los stacks de cada CPU apuntarían a la misma memoria.
+
+3. Cuando QEMU corre con múltiples CPUs, éstas se muestran en GDB como hilos de ejecución separados. Mostrar una sesión de GDB en la que se muestre cómo va cambiando el valor de la variable global `mpentry_kstack`:
+
+```asm
+(gdb) watch mpentry_kstack
+Hardware watchpoint 1: mpentry_kstack
+(gdb) c
+Continuando.
+Se asume que la arquitectura objetivo es i386
+=> 0xf0100195 <boot_aps+140>:	mov    %esi,%ecx
+
+Thread 1 hit Hardware watchpoint 1: mpentry_kstack
+
+Old value = (void *) 0x0
+New value = (void *) 0xf0247000 <percpu_kstacks+65536>
+boot_aps () at kern/init.c:106
+106			lapic_startap(c->cpu_id, PADDR(code));
+(gdb) bt
+#0  boot_aps () at kern/init.c:106
+#1  0xf010021e in i386_init () at kern/init.c:55
+#2  0xf0100049 in relocated () at kern/entry.S:86
+(gdb) info threads
+  Id   Target Id         Frame 
+* 1    Thread 1 (CPU#0 [running]) boot_aps () at kern/init.c:106
+  2    Thread 2 (CPU#1 [halted ]) 0x000fd412 in ?? ()
+  3    Thread 3 (CPU#2 [halted ]) 0x000fd412 in ?? ()
+  4    Thread 4 (CPU#3 [halted ]) 0x000fd412 in ?? ()
+(gdb) c
+Continuando.
+=> 0xf0100195 <boot_aps+140>:	mov    %esi,%ecx
+
+Thread 1 hit Hardware watchpoint 1: mpentry_kstack
+
+Old value = (void *) 0xf0247000 <percpu_kstacks+65536>
+New value = (void *) 0xf024f000 <percpu_kstacks+98304>
+boot_aps () at kern/init.c:106
+106			lapic_startap(c->cpu_id, PADDR(code));
+(gdb) info threads
+  Id   Target Id         Frame 
+* 1    Thread 1 (CPU#0 [running]) boot_aps () at kern/init.c:106
+  2    Thread 2 (CPU#1 [running]) 0xf01002ac in mp_main () at kern/init.c:124
+  3    Thread 3 (CPU#2 [halted ]) 0x000fd412 in ?? ()
+  4    Thread 4 (CPU#3 [halted ]) 0x000fd412 in ?? ()
+(gdb) thread 2
+[Switching to thread 2 (Thread 2)]
+#0  0xf01002ac in mp_main () at kern/init.c:124
+124		xchg(&thiscpu->cpu_status, CPU_STARTED); // tell boot_aps() we're up
+(gdb) bt
+#0  0xf01002ac in mp_main () at kern/init.c:124
+#1  0x00007062 in ?? ()
+(gdb) p cpunum()
+Could not fetch register "orig_eax"; remote failure reply 'E14'
+(gdb) thread 1
+[Switching to thread 1 (Thread 1)]
+#0  boot_aps () at kern/init.c:106
+106			lapic_startap(c->cpu_id, PADDR(code));
+(gdb) p cpunum()
+Could not fetch register "orig_eax"; remote failure reply 'E14'
+(gdb) c
+Continuando.
+=> 0xf0100195 <boot_aps+140>:	mov    %esi,%ecx
+
+Thread 1 hit Hardware watchpoint 1: mpentry_kstack
+
+Old value = (void *) 0xf024f000 <percpu_kstacks+98304>
+New value = (void *) 0xf0257000 <percpu_kstacks+131072>
+boot_aps () at kern/init.c:106
+106			lapic_startap(c->cpu_id, PADDR(code));
+(gdb) info threads
+  Id   Target Id         Frame 
+* 1    Thread 1 (CPU#0 [running]) boot_aps () at kern/init.c:106
+  2    Thread 2 (CPU#1 [running]) 0xf01002ac in mp_main () at kern/init.c:124
+  3    Thread 3 (CPU#2 [running]) 0xf01002ac in mp_main () at kern/init.c:124
+  4    Thread 4 (CPU#3 [halted ]) 0x000fd412 in ?? ()
+(gdb) bt
+#0  boot_aps () at kern/init.c:106
+#1  0xf010021e in i386_init () at kern/init.c:55
+#2  0xf0100049 in relocated () at kern/entry.S:86
+(gdb) thread 3
+[Switching to thread 3 (Thread 3)]
+#0  0xf01002ac in mp_main () at kern/init.c:124
+124		xchg(&thiscpu->cpu_status, CPU_STARTED); // tell boot_aps() we're up
+(gdb) p cpunum()
+Could not fetch register "orig_eax"; remote failure reply 'E14'
+(gdb) c
+Continuando.
+```
+
+4. ¿Qué valor tendrá el registro `%eip` cuando se ejecute la línea `movl $(RELOC(entry_pgdir)), %eax` de `kern/mpentry.S`? ¿Se detiene en algún momento la ejecución si se pone un breakpoint en mpentry_start? ¿Por qué?
+
+Redondeada a 12 bits, el `%eip` apuntará a la región de memoria `0x7000` (`MPENTRY_PADDR`), ya que todo el bloque de código (mucho menor a una página) de `mpentry.S` se mapeó allí.
+
+La ejecución no se detiene al poner in breakpoint en `mpentry_start` porque el registro `%eip` nunca llega a pasar por esa dirección, ya que el código ese se mapeó a 0.
+    
+5. Con GDB, mostrar el valor exacto de `%eip` y `mpentry_kstack` cuando se ejecuta la instrucción anterior en el último AP.
+
+```asm
+(gdb) b *0x7000 thread 4
+Punto de interrupción 1 at 0x7000
+(gdb) c
+Continuando.
+
+Thread 2 received signal SIGTRAP, Trace/breakpoint trap.
+[Cambiando a Thread 2]
+Se asume que la arquitectura objetivo es i8086
+[ 700:   0]    0x7000:	cli    
+0x00000000 in ?? ()
+(gdb) disable 1
+(gdb) si 10
+Se asume que la arquitectura objetivo es i386
+=> 0x7020:	mov    $0x10,%ax
+0x00007020 in ?? ()
+(gdb) x10i $eip
+orden indefinida: «x10i». Intente con «help»
+(gdb) x/10i $eip
+=> 0x7020:	mov    $0x10,%ax
+   0x7024:	mov    %eax,%ds
+   0x7026:	mov    %eax,%es
+   0x7028:	mov    %eax,%ss
+   0x702a:	mov    $0x0,%ax
+   0x702e:	mov    %eax,%fs
+   0x7030:	mov    %eax,%gs
+   0x7032:	mov    $0x11f000,%eax
+   0x7037:	mov    %eax,%cr3
+   0x703a:	mov    %cr4,%eax
+(gdb) watch $eax == 0x11f000
+Watchpoint 2: $eax == 0x11f000
+(gdb) c
+Continuando.
+=> 0x7037:	mov    %eax,%cr3
+
+Thread 2 hit Watchpoint 2: $eax == 0x11f000
+
+Old value = 0
+New value = 1
+0x00007037 in ?? ()
+(gdb) p $eip
+$1 = (void (*)()) 0x7037
+(gdb)  p mpentry_kstack
+$2 = (void *) 0x0
+```

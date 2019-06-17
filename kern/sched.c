@@ -29,32 +29,21 @@ sched_yield(void)
 	// below to halt the cpu.
 
 	// LAB 4: Your code here.
+	// '''' sched_yield
 
 	// This iterates starting from the current environment until the end of envs.
-	// cprintf("\n !!!! \n");
-
 	if (curenv) {
 		idle = curenv + 1;
 	} else {
-		// cprintf(" !!!! idle = envs\n");
 		idle = envs;
 	}
 
-
 	for (; idle < envs + NENV; idle++) {
-		/*
-		cprintf("\n !!!! ACA NO %x \n", idle);
-		cprintf("\n !!!! ACA %x \n", idle);
-		cprintf("\n !!!! ACA %x \n", idle);
-		 */
 		if (idle->env_status == ENV_RUNNABLE) {
-			// cprintf("\n !!!! grr 1 %x \n", idle);
 			env_run(idle);
 			// Ends the loop.
 		}
-		// cprintf("\n !!!! grr 2 %x \n", idle);
 	}
-	// cprintf("\n !!!! end first loop\n");
 
 	// This iterates from the beginning of envs until the current environment.
 	idle = envs;
@@ -64,12 +53,10 @@ sched_yield(void)
 			// Ends the loop.
 		}
 	}
-	// cprintf("\n !!!! end second loop \n");
 
 	if (curenv && curenv->env_status == ENV_RUNNING) {
 		env_run(curenv);
 	}
-	// cprintf("\n !!!! \n");
 
 	// sched_halt never returns
 	sched_halt();
