@@ -180,8 +180,42 @@ envid_t
 fork(void)
 {
 	// LAB 4: Your code here.
-	// '''' fork_v0
-	return fork_v0();
+	int r;
+	envid_t envid;
+	uint8_t *addr;
+
+	envid = sys_exofork();
+	if (envid < 0)
+		panic("sys_exofork: %e", envid);
+	if (envid == 0) {
+		thisenv = &envs[ENVX(sys_getenvid())];
+		return 0;
+	}
+
+	for (addr = 0; (int) addr < UTOP; addr += PGSIZE) {
+		if ((PGOFF(uvpd[PDX(addr)]) & PTE_P) != PTE_P) {
+			continue;
+		}
+		int perm = PGOFF(uvpt[PGNUM(addr)]);
+		if ((perm & PTE_P) == PTE_P) {
+			duppage(envid, PGNUM(addr));
+		}
+	}
+
+	if((r = sys_page_alloc(envid, (void*)(UXSTACKTOP - PGSIZE), PTE_SYSCALL)) < 0){
+		panic("fork: sys_page_alloc failed for env_id=%d. Exit code %d (check error.h)", envid, r);
+	}
+
+	extern void _pgfault_upcall(void);
+
+	if((r = sys_env_set_pgfault_upcall(envid, _pgfault_upcall)) < 0){
+		panic("fork: sys_env_set_pgfault_upcall failed for env_id=%d. Exit code %d (check error.h)", envid, r);
+	}
+
+	if ((r = sys_env_set_status(envid, ENV_RUNNABLE)) < 0)
+		panic("sys_env_set_status: %e", r);
+
+	return envid;
 }
 
 // Challenge!
