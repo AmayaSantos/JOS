@@ -276,7 +276,6 @@ mem_init_mp(void)
 	//     Permissions: kernel RW, user NONE
 	//
 	// LAB 4: Your code here:
-	// ''''
 	for (int i = 0; i < NCPU; i++) {
 		physaddr_t pa = PADDR(percpu_kstacks[i]);
 		uintptr_t kstacktop_i = KSTACKTOP - i * (KSTKSIZE + KSTKGAP);

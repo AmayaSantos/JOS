@@ -29,7 +29,6 @@ sched_yield(void)
 	// below to halt the cpu.
 
 	// LAB 4: Your code here.
-	// '''' sched_yield
 
 	// This iterates starting from the current environment until the end of envs.
 	if (curenv) {

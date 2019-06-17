@@ -92,7 +92,6 @@ trap_init(void)
 	void trap_handler18();
 	void trap_handler19();
 
-	// '''' timer_irq
 	void trap_handler32();
 
 	void trap_handler48();
@@ -118,7 +117,6 @@ trap_init(void)
 	SETGATE(idt[T_MCHK], 0, GD_KT, trap_handler18, 0);
 	SETGATE(idt[T_SIMDERR], 0, GD_KT, trap_handler19, 0);
 
-	// '''' timer_irq
 	// INTERRUPTS
 	SETGATE(idt[IRQ_OFFSET + IRQ_TIMER], 0, GD_KT, trap_handler32, 3);
 
@@ -156,7 +154,6 @@ trap_init_percpu(void)
 	// user space on that CPU.
 	//
 	// LAB 4: Your code here:
-	// '''' trap_init_percpu
 	int id = cpunum();
 	struct CpuInfo *cpu = &cpus[id];
 	struct Taskstate *ts = &cpu->cpu_ts;
@@ -245,7 +242,6 @@ trap_dispatch(struct Trapframe *tf)
 			page_fault_handler(tf);
 			return;
 
-		// '''' timer_irq
 		// !!!! the first one is the correct one, but the other one is less likely to fail.
 		// case (IRQ_OFFSET + IRQ_TIMER):
 		case IRQ_OFFSET:
@@ -314,7 +310,6 @@ trap(struct Trapframe *tf)
 		// Acquire the big kernel lock before doing any
 		// serious kernel work.
 		// LAB 4: Your code here.
-		// '''' kernel_lock
 		lock_kernel();
 		assert(curenv);
 

@@ -93,7 +93,6 @@ duppage(envid_t envid, unsigned pn)
 	return 0;
 }
 
-// '''' fork_v0
 static void
 dup_or_share(envid_t dstenv, void *va, int perm)
 {
@@ -118,7 +117,6 @@ dup_or_share(envid_t dstenv, void *va, int perm)
 envid_t
 fork_v0(void)
 {
-	// '''' fork_v0
 	int r;
 	envid_t envid;
 	uint8_t *addr;

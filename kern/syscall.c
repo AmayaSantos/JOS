@@ -85,7 +85,6 @@ sys_exofork(void)
 	// will appear to return 0.
 
 	// LAB 4: Your code here.
-	// '''' sys_exofork
 	struct Env *e;
 	envid_t cuenvid = sys_getenvid();
 
@@ -118,7 +117,6 @@ sys_env_set_status(envid_t envid, int status)
 	// envid's status.
 
 	// LAB 4: Your code here.
-	// '''' sys_exofork
 	struct Env *e;
 
 	if ((envid2env(envid, &e, 1)) < 0) {
@@ -146,7 +144,6 @@ static int
 sys_env_set_pgfault_upcall(envid_t envid, void *func)
 {
 	// LAB 4: Your code here.
-	// '''' set_pgfault_upcall
 	struct Env *e;
 
 	if ((envid2env(envid, &e, 1)) < 0) {
@@ -184,7 +181,6 @@ sys_page_alloc(envid_t envid, void *va, int perm)
 	//   allocated!
 
 	// LAB 4: Your code here.
-	// '''' sys_exofork
 	struct Env *e;
 	struct PageInfo *p;
 
@@ -243,7 +239,6 @@ sys_page_map(envid_t srcenvid, void *srcva, envid_t dstenvid, void *dstva, int p
 	//   check the current permissions on the page.
 
 	// LAB 4: Your code here.
-	// '''' sys_exofork
 	struct Env *srce, *dste;
 	struct PageInfo *p;
 	pte_t *pte;
@@ -306,7 +301,6 @@ sys_page_unmap(envid_t envid, void *va)
 	// Hint: This function is a wrapper around page_remove().
 
 	// LAB 4: Your code here.
-	// '''' sys_exofork
 	struct Env *e;
 	struct PageInfo *p;
 
@@ -365,7 +359,6 @@ static int
 sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 {
 	// LAB 4: Your code here.
-	// '''' sys_ipc_try_send
 	struct Env *e;
 	struct PageInfo *p = NULL;
 	pte_t *pte;
@@ -438,7 +431,6 @@ static int
 sys_ipc_recv(void *dstva)
 {
 	// LAB 4: Your code here.
-	// '''' sys_ipc_recv
 	if ((int) dstva < UTOP && (int) dstva % PGSIZE != 0) {
 		return  -E_INVAL;
 	}
@@ -473,12 +465,10 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 		case SYS_env_destroy:
 			return sys_env_destroy(a1);
 
-		// '''' sys_yield
 		case SYS_yield:
 			sys_yield();
 			return 0;
 
-		// '''' sys_exofork
 		case SYS_exofork:
 			return sys_exofork();
 
@@ -494,15 +484,12 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 		case SYS_page_unmap:
 			return sys_page_unmap(a1, (void*) a2);
 
-		// '''' sys_ipc_recv
 		case SYS_ipc_recv:
 			return sys_ipc_recv((void*) a1);
 
-		// '''' sys_ipc_try_send
 		case SYS_ipc_try_send:
 			return sys_ipc_try_send(a1, a2, (void*) a3, a4);
 
-		// '''' set_pgfault_upcall
 		case SYS_env_set_pgfault_upcall:
 			return sys_env_set_pgfault_upcall(a1, (void*) a2);
 

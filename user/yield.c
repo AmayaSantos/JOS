@@ -10,7 +10,6 @@ umain(int argc, char **argv)
 	cprintf("Hello, I am environment %08x, cpu %d\n", thisenv->env_id, thisenv->env_cpunum);
 	for (i = 0; i < 5; i++) {
 		sys_yield();
-		// '''' kernel_lock
 		cprintf("Back in environment %08x, iteration %d, cpu %d.\n",
 			thisenv->env_id, i, thisenv->env_cpunum);
 	}
