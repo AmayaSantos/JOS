@@ -720,3 +720,31 @@ $1 = (void (*)()) 0x7037
 (gdb)  p mpentry_kstack
 $2 = (void *) 0x0
 ```
+
+### Comunicación entre procesos: ipc_recv
+
+1. Un proceso podría intentar enviar el valor númerico `-E_INVAL` vía `ipc_send()`. Se completan las condiciones de los  `if` de ambas versiones para detectar correctamente los errores 
+
+```c
+// Versión A
+envid_t src = -1;
+int r = ipc_recv(&src, 0, NULL);
+
+if (r < 0)
+  if (src == 0) // Comentario en ipc_recv: If the system call fails, then store 0 in *fromenv
+    puts("Hubo error.");
+  else
+    puts("Valor negativo correcto.")
+
+// Versión B
+int r = ipc_recv(NULL, 0, NULL);
+
+if (r < 0)
+  if (/* ??? */) // No hay manera de detectar el error. 
+                 // La función recibe NULL tanto en fromenv como perm_store,
+                 //     haciendo que no haya puntero contra el cual verificar
+    puts("Hubo error.");
+  else
+	puts("Valor negativo correcto.")
+```
+
