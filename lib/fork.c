@@ -41,17 +41,17 @@ pgfault(struct UTrapframe *utf)
 
 	// LAB 4: Your code here.
 	if ((r = sys_page_alloc(sys_getenvid(), PFTEMP, PTE_SYSCALL)) < 0) {
-		panic("pgfault: sys_page_alloc failed for env_id=%d. Exit code %d (check error.h)", thisenv->env_id, r);
+		panic("pgfault: sys_page_alloc failed for env_id=%d. Exit code %d (check error.h)", sys_getenvid(), r);
 	}
 
 	memmove(PFTEMP, ROUNDDOWN(addr,PGSIZE), PGSIZE);
 
 	if ((r = sys_page_map(sys_getenvid(), PFTEMP, sys_getenvid(), ROUNDDOWN(addr,PGSIZE), PTE_SYSCALL)) < 0) {
-		panic("pgfault: sys_page_map: failed for env_id=%d. Exit code %d (check error.h)", thisenv->env_id, r);
+		panic("pgfault: sys_page_map: failed for env_id=%d. Exit code %d (check error.h)", sys_getenvid(), r);
 	}
 
 	if ((r = sys_page_unmap(0, PFTEMP)) < 0) {
-		panic("pgfault: sys_page_unmap failed for env_id=%d. Exit code %d (check error.h)", thisenv->env_id, r);
+		panic("pgfault: sys_page_unmap failed for env_id=%d. Exit code %d (check error.h)", sys_getenvid(), r);
 	}
 
 }
@@ -70,10 +70,26 @@ pgfault(struct UTrapframe *utf)
 static int
 duppage(envid_t envid, unsigned pn)
 {
+	void *va = (void *) (pn * PGSIZE);
 	int r;
 
 	// LAB 4: Your code here.
-	panic("duppage not implemented");
+	pte_t pte = uvpt[pn];
+	int perm = pte & (PTE_COW | PTE_SYSCALL);
+
+	if((perm & PTE_W) || (perm & PTE_COW)){
+		perm &= ~PTE_W;
+		perm = perm | PTE_COW;
+	}
+
+	if((r = sys_page_map(sys_getenvid(), va, envid, va, perm)) < 0) {
+		panic("duppage: sys_page_map failed for env_id=%d. Exit code %d (check error.h)", sys_getenvid(), r);
+	}
+
+	if ((r = sys_page_map(sys_getenvid(), va, sys_getenvid(), va, perm)) < 0) {
+		panic("duppage: sys_page_map failed for env_id=%d. Exit code %d (check error.h)", sys_getenvid(), r);
+	}
+
 	return 0;
 }
 
