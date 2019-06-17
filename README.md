@@ -786,3 +786,9 @@ if (r < 0)
 	puts("Valor negativo correcto.")
 ```
 
+### Comunicación entre procesos: sys_ipc_try_send
+
+1. Responder: ¿Cómo se podría hacer bloqueante la llamada a `sys_ipc_try_send()`? Esto es: qué estrategia de implementación se podría usar para que, si un proceso A intenta a enviar a B, pero B no está esperando un mensaje, el proceso A sea puesto en estado ENV_NOT_RUNNABLE, y sea despertado una vez B llame a ipc_recv().
+
+Si el entorno B no esta esperando un mensaje (que se puede verificar con un `if` sobre el atributo `env_ipc_recving`), se pasa al entorno actual al estado `ENV_NOT_RUNNABLE`. Luego, cuando el entorno B sea quien llame a `sys_ipc_recv` deberá tener una referencia a A para recuperar el estado de `ENV_RUNNABLE` (esto se puede lograr almacenando una lista de los entornos de los cuales se esperan mensajes, que puede ser actualizada en el primer llamado). 
+
