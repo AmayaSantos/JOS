@@ -29,7 +29,7 @@ pgfault(struct UTrapframe *utf)
 	if(!(err & FEC_WR)) {
 		panic("pgfault: faulting access was not a write");
 	}
-	else if (pte & PTE_COW){
+	if (!(pte & PTE_COW)){
 		panic("pgfault: faulting access was not copy on write");
 	}
 
@@ -184,6 +184,7 @@ fork(void)
 	envid_t envid;
 	uint8_t *addr;
 
+	set_pgfault_handler(pgfault);
 	envid = sys_exofork();
 	if (envid < 0)
 		panic("sys_exofork: %e", envid);
@@ -192,7 +193,8 @@ fork(void)
 		return 0;
 	}
 
-	for (addr = 0; (int) addr < UTOP; addr += PGSIZE) {
+
+	for (addr = 0; addr < (uint8_t*)(UXSTACKTOP - PGSIZE); addr += PGSIZE){
 		if ((PGOFF(uvpd[PDX(addr)]) & PTE_P) != PTE_P) {
 			continue;
 		}
