@@ -550,33 +550,70 @@ La secuencia de instrucciones es, básicamente, la siguiente imagen:
 
 ### Creación dinámica de procesos: envid2env
 
-1. Responder qué ocurre en JOS, si un proceso llama a `sys_env_destroy(0)`
+1. Responder: ¿qué ocurre en JOS, si un proceso llama a `sys_env_destroy(0)`?
 
 El comentario (`// If envid is zero, return the current environment.`) dentro de la definición de `envid2env` es muy claro: Si se recibe 0, se entiende como el entorno actual. Como `sys_env_destroy` llama con ese parametro a `envid2env`, entonces con esta llamada se destruye el entorno actual.
 
-2. Responder qué ocurre en Linux, si un proceso llama a `kill(0, 9)`
+2. Responder: ¿qué ocurre en Linux, si un proceso llama a `kill(0, 9)`?
 
 El manual de la syscall kill (con `man 2 kill`) explica que el primer parametro recibido es el `pid` y el segundo la señal a enviar. También dice: `If pid equals 0, then sig is sent to every process in the process group of the calling process.`. También (con `man 7 signal`) se nota que la señal 9 es `SIGKILL`, una señal para forzar la terminación de un proceso.
 
 `kill(0,9)` destruye todos los procesos del process group (del proceso que llamo a `kill`).
  
-
-3. Responder qué ocurre en JOS, si un proceso llama a `sys_env_destroy(-1)`
+3. Responder: ¿qué ocurre en JOS, si un proceso llama a `sys_env_destroy(-1)`?
 
 `envid2env` sabe cual es el entorno porque hace `e = &envs[ENVX(envid)];` (siendo `ENVX` la función (macro) que devuelve el offset del entorno en el arreglo `envs`, `#define ENVX(envid)		((envid) & (NENV - 1))`). Es con la definición de `ENVX` que se nota que si se recibe -1, se devolvera el offset `NENV-1`, que equivale al último elemento del arreglo. La llamada `sys_env_destroy(-1)` destruye el entorno en la última posicion de `envs`.
 
-
-4. Responder qué ocurre en Linux, si un proceso llama a `kill(-1, 9)`
+4. Responder: ¿qué ocurre en Linux, si un proceso llama a `kill(-1, 9)`?
 
 El manual de la syscall también dice `If  pid  equals  -1,  then  sig  is sent to every process for which the calling process has permission to send signals, except for process 1 (init)`. Entonces, `kill(-1,9)` destruye todos los procesos a los que el proceso que llamo a `kill` puede alcanzar (por sus permisos). 
 
+### Creación dinámica de procesos: dumbfork
+
+1. Responder: Si, antes de llamar a `dumbfork()`, el proceso se reserva a sí mismo una página con sys_page_alloc() ¿se propagará una copia al proceso hijo? ¿Por qué?
+
+La propagación, que ocurre en la función `duppage`, sucede solamente si la dirección de la página entra en el ciclo `for (addr = (uint8_t*) UTEXT; addr < end; addr += PGSIZE)` (como dice el comentario de `dumbfork`, la copia es `eagerly` (ansiosa))
+
+2. Responder: ¿Se preserva el estado de solo-lectura en las páginas copiadas? Mostrar, con código en espacio de usuario, cómo saber si una dirección de memoria es modificable por el proceso, o no. (Ayuda: usar las variables globales uvpd y/o uvpt.)
+
+El estado de solo lectura no se preserva ya que `sys_page_alloc()` (dentro de `duppage()`) se llama con permiso de escritura (`PTE_P|PTE_U|PTE_W`). Un posible código para saber si una dirección de memoria es modificable es:
+
+```c
+pde_t pde = uvpd[PDX(addr)];
+if (!p (pde & PTE_P)){
+	continue;
+}
+pte_t pte = uvpt[PGNUM(addr)];
+int perm = pte & PTE_W;
+```
+
+3. Describir el funcionamiento de la función `duppage()`.
+
+`duppage()` llama a `sys_page_alloc()` para asignar a la dirección de destino una nueva página con permisos de escritura, luego llama a `sys_page_map()` para enlazar la página ubicada en la dirección de destino en `UTEMP` (así se evita la verificación de permisos). Finalmente restaura el estado original (llamando a `sys_page_unmap()` sobre `UTEMP`).
+
+4. Supongamos que se añade a duppage() un argumento booleano que indica si la página debe quedar como solo-lectura en el proceso hijo:
+
+  * Indicar qué llamada adicional se debería hacer si el booleano es true
+  
+  Si quisiesemos mantener la página en solo lectura en el proceso hijo, haría falta un nuevo llamado a `sys_page_map()` quitando el permiso de escritura.
+
+  * Describir un algoritmo alternativo que no aumente el número de llamadas al sistema, que debe quedar en 3 (1 × alloc, 1 × map, 1 × unmap).
+
+  Una manera de mantener los llamados al sistema puede ser modificando los permisos que recibe `sys_page_alloc()` (esta vez queremos que solo reciba `PTE_P | PTE_U`). Siendo que depende de una variable booleana, con un operador ternario se puede lograr lo deseado.
+
+5. Responder: ¿Por qué se usa ROUNDDOWN(&addr) para copiar el stack? ¿Qué es addr y por qué, si el stack crece hacia abajo, se usa ROUNDDOWN y no ROUNDUP?
+
+Como `addr` es una variable local definida en la función misma (en vez de venir del heap), vive en el stack del proceso (padre). `ROUNDDOWN` sobre esta variable mostrará entonces el 'techo' del stack. Entonces, queremos copiar desde este techo hasta el comienzo del stack. 
+
+Como estamos copiando sobre el stack, de manera 'invertida', estamos copiando desde el piso del stack (al cual lelgamos con `ROUNDDOWN`) hasta el comienzo de este.
+
 ### Ejecución en paralelo: multicore_init
 
-1. ¿Qué código copia, y a dónde, la siguiente línea de la función boot_aps()? `memmove(code, mpentry_start, mpentry_end - mpentry_start);`
+1. Responder: ¿Qué código copia, y a dónde, la siguiente línea de la función boot_aps()? `memmove(code, mpentry_start, mpentry_end - mpentry_start);`
 
 La linea copia el código que se encuentra en `kern/mpentry.S`, a la dirección virtual `0xf0007000`, que mapea a la dirección física `0x7000` (`MPENTRY_PADDR`).
 
-2. ¿Para qué se usa la variable global `mpentry_kstack`? ¿Qué ocurriría si el espacio para este stack se reservara en el archivo `kern/mpentry.S`, de manera similar a `bootstack` en el archivo `kern/entry.S`?
+2. Responder: ¿Para qué se usa la variable global `mpentry_kstack`? ¿Qué ocurriría si el espacio para este stack se reservara en el archivo `kern/mpentry.S`, de manera similar a `bootstack` en el archivo `kern/entry.S`?
    
 Se utiliza porque cada CPU va a apuntar a un stack distinto. Si se reservara al igual que `bootstack`, entonces los stacks de cada CPU apuntarían a la misma memoria.
 
@@ -667,7 +704,7 @@ Could not fetch register "orig_eax"; remote failure reply 'E14'
 Continuando.
 ```
 
-4. ¿Qué valor tendrá el registro `%eip` cuando se ejecute la línea `movl $(RELOC(entry_pgdir)), %eax` de `kern/mpentry.S`? ¿Se detiene en algún momento la ejecución si se pone un breakpoint en mpentry_start? ¿Por qué?
+4. Responder: ¿Qué valor tendrá el registro `%eip` cuando se ejecute la línea `movl $(RELOC(entry_pgdir)), %eax` de `kern/mpentry.S`? ¿Se detiene en algún momento la ejecución si se pone un breakpoint en mpentry_start? ¿Por qué?
 
 Redondeada a 12 bits, el `%eip` apuntará a la región de memoria `0x7000` (`MPENTRY_PADDR`), ya que todo el bloque de código (mucho menor a una página) de `mpentry.S` se mapeó allí.
 
@@ -723,7 +760,7 @@ $2 = (void *) 0x0
 
 ### Comunicación entre procesos: ipc_recv
 
-1. Un proceso podría intentar enviar el valor númerico `-E_INVAL` vía `ipc_send()`. Se completan las condiciones de los  `if` de ambas versiones para detectar correctamente los errores 
+1. Un proceso podría intentar enviar el valor númerico `-E_INVAL` vía `ipc_send()`. Se completan las condiciones de los  `if` de ambas versiones del siguiente código para detectar correctamente los errores 
 
 ```c
 // Versión A
@@ -732,6 +769,7 @@ int r = ipc_recv(&src, 0, NULL);
 
 if (r < 0)
   if (src == 0) // Comentario en ipc_recv: If the system call fails, then store 0 in *fromenv
+                // Solo basta con verificar que le sucedio al puntero del primer parametro (fromenv)
     puts("Hubo error.");
   else
     puts("Valor negativo correcto.")
