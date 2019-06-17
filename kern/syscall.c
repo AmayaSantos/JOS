@@ -154,7 +154,6 @@ sys_env_set_pgfault_upcall(envid_t envid, void *func)
 	}
 
 	e->env_pgfault_upcall = func;
-
 	return 0;
 }
 
