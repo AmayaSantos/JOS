@@ -25,6 +25,13 @@ pgfault(struct UTrapframe *utf)
 	//   (see <inc/memlayout.h>).
 
 	// LAB 4: Your code here.
+	pte_t pte = uvpt[(uintptr_t)addr >> PGSHIFT];
+	if(!(err & FEC_WR)) {
+		panic("pgfault: faulting access was not a write");
+	}
+	else if (pte & PTE_COW){
+		panic("pgfault: faulting access was not copy on write");
+	}
 
 	// Allocate a new page, map it at a temporary location (PFTEMP),
 	// copy the data from the old page to the new page, then move the new
@@ -33,8 +40,20 @@ pgfault(struct UTrapframe *utf)
 	//   You should make three system calls.
 
 	// LAB 4: Your code here.
+	if ((r = sys_page_alloc(sys_getenvid(), PFTEMP, PTE_SYSCALL)) < 0) {
+		panic("pgfault: sys_page_alloc failed for env_id=%d. Exit code %d (check error.h)", thisenv->env_id, r);
+	}
 
-	panic("pgfault not implemented");
+	memmove(PFTEMP, ROUNDDOWN(addr,PGSIZE), PGSIZE);
+
+	if ((r = sys_page_map(sys_getenvid(), PFTEMP, sys_getenvid(), ROUNDDOWN(addr,PGSIZE), PTE_SYSCALL)) < 0) {
+		panic("pgfault: sys_page_map: failed for env_id=%d. Exit code %d (check error.h)", thisenv->env_id, r);
+	}
+
+	if ((r = sys_page_unmap(0, PFTEMP)) < 0) {
+		panic("pgfault: sys_page_unmap failed for env_id=%d. Exit code %d (check error.h)", thisenv->env_id, r);
+	}
+
 }
 
 //
