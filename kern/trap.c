@@ -80,18 +80,17 @@ trap_init(void)
 	void trap_handler6();
 	void trap_handler7();
 	void trap_handler8();
-
+	void trap_handler9();
 	void trap_handler10();
 	void trap_handler11();
 	void trap_handler12();
 	void trap_handler13();
 	void trap_handler14();
-
+	void trap_handler15();
 	void trap_handler16();
 	void trap_handler17();
 	void trap_handler18();
 	void trap_handler19();
-	void trap_handler20(); // !!!! This is here but there is no SETGATE, in array trapname it is only named until 19, maybe remove this.
 
 	// '''' timer_irq
 	void trap_handler32();
@@ -107,25 +106,23 @@ trap_init(void)
 	SETGATE(idt[T_ILLOP], 1, GD_KT, trap_handler6, 0);
 	SETGATE(idt[T_DEVICE], 1, GD_KT, trap_handler7, 0);
 	SETGATE(idt[T_DBLFLT], 1, GD_KT, trap_handler8, 0);
-
-	SETGATE(idt[T_TSS], 1, GD_KT, trap_handler10, 0);
-	SETGATE(idt[T_SEGNP], 1, GD_KT, trap_handler11, 0);
-	SETGATE(idt[T_STACK], 1, GD_KT, trap_handler12, 0);
-	SETGATE(idt[T_GPFLT], 1, GD_KT, trap_handler13, 0);
-	SETGATE(idt[T_PGFLT], 1, GD_KT, trap_handler14, 0);
-
-	SETGATE(idt[T_FPERR], 1, GD_KT, trap_handler16, 0);
-	SETGATE(idt[T_ALIGN], 1, GD_KT, trap_handler17, 0);
-	SETGATE(idt[T_MCHK], 1, GD_KT, trap_handler18, 0);
-	SETGATE(idt[T_SIMDERR], 1, GD_KT, trap_handler19, 0);
+	SETGATE(idt[9], 0, GD_KT, trap_handler9, 0);
+	SETGATE(idt[T_TSS], 0, GD_KT, trap_handler10, 0);
+	SETGATE(idt[T_SEGNP], 0, GD_KT, trap_handler11, 0);
+	SETGATE(idt[T_STACK], 0, GD_KT, trap_handler12, 0);
+	SETGATE(idt[T_GPFLT], 0, GD_KT, trap_handler13, 0);
+	SETGATE(idt[T_PGFLT], 0, GD_KT, trap_handler14, 0);
+	SETGATE(idt[15], 0, GD_KT, trap_handler15, 0);
+	SETGATE(idt[T_FPERR], 0, GD_KT, trap_handler16, 0);
+	SETGATE(idt[T_ALIGN], 0, GD_KT, trap_handler17, 0);
+	SETGATE(idt[T_MCHK], 0, GD_KT, trap_handler18, 0);
+	SETGATE(idt[T_SIMDERR], 0, GD_KT, trap_handler19, 0);
 
 	// '''' timer_irq
 	// INTERRUPTS
-	// maybe 0 at the end. certain that it is not trap
 	SETGATE(idt[IRQ_OFFSET + IRQ_TIMER], 0, GD_KT, trap_handler32, 3);
 
 	// SYSCALL
-	// !!!! maybe add istrap, but almost certain it is not.
 	SETGATE(idt[T_SYSCALL], 0, GD_KT, trap_handler48, 3);
 
 
@@ -404,9 +401,14 @@ page_fault_handler(struct Trapframe *tf)
 		struct UTrapframe *u;
 
 		uintptr_t top = UXSTACKTOP;
-		uint32_t size = sizeof(struct UTrapframe);
+		uint32_t size = sizeof(struct UTrapframe) +4;
 
-		u = (struct UTrapframe*) (top - size);
+		if(tf->tf_esp >= (UXSTACKTOP - PGSIZE) && tf->tf_esp < UXSTACKTOP){
+			top = tf->tf_esp;
+		}
+
+		user_mem_assert(curenv,(void*)(top - size), size, PTE_U | PTE_W);
+		u = (struct UTrapframe*)(top - size);
 
 		u->utf_fault_va = fault_va;
 		u->utf_err = tf->tf_err;
