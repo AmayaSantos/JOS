@@ -242,7 +242,6 @@ trap_dispatch(struct Trapframe *tf)
 			page_fault_handler(tf);
 			return;
 
-		// !!!! the first one is the correct one, but the other one is less likely to fail.
 		// case (IRQ_OFFSET + IRQ_TIMER):
 		case IRQ_OFFSET:
 			lapic_eoi();

@@ -149,7 +149,6 @@ fork_v0(void)
 	}
 
 	// Also copy the stack we are currently running on.
-	// !!!! duppage(envid, ROUNDDOWN(&addr, PGSIZE));
 
 	// Start the child environment running
 	if ((r = sys_env_set_status(envid, ENV_RUNNABLE)) < 0)
