@@ -792,3 +792,8 @@ if (r < 0)
 
 Si el entorno B no esta esperando un mensaje (que se puede verificar con un `if` sobre el atributo `env_ipc_recving`), se pasa al entorno actual al estado `ENV_NOT_RUNNABLE`. Luego, cuando el entorno B sea quien llame a `sys_ipc_recv` deberá tener una referencia a A para recuperar el estado de `ENV_RUNNABLE` (esto se puede lograr almacenando una lista de los entornos de los cuales se esperan mensajes, que puede ser actualizada en el primer llamado). 
 
+### Copy-on-write fork : fork
+
+1. Responder: ¿Puede reservarse memoria para la pila de excepciones del hijo, e instalar su manejador de excepciones, con la función `set_pgfault_handler()`? De no poderse, ¿cómo llega al hijo el valor correcto de la variable global `_pgfault_handler`?
+
+No es posible reservar memoria para el hijo con `set_pgfault_handler()` porque esta lo hace para el entorno actual (el padre). La manera correcta sería que la función reciba también el id del entorno. A la variable `_pgfault_handler` se llega por ser `_pgfault_upcall` una variable de tipo `extern` (accesible desde todos lados). 
