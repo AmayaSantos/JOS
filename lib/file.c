@@ -144,16 +144,11 @@ devfile_write(struct Fd *fd, const void *buf, size_t n)
 	int r;
 
 	fsipcbuf.write.req_fileid = fd->fd_file.id;
-	fsipcbuf.write.req_n = n;
-
 	size_t size = sizeof(fsipcbuf.write.req_buf);
-	size_t to_write = size < n ? n : size;
-	memmove(fsipcbuf.write.req_buf, buf, to_write);
+	fsipcbuf.write.req_n = (n > size) ? size : n;
 
-	if ((r = fsipc(FSREQ_WRITE, NULL)) < 0)
-		return r;
-
-	return r;
+	memmove(fsipcbuf.write.req_buf, buf, fsipcbuf.write.req_n);
+	return fsipc(FSREQ_WRITE, NULL);
 }
 
 static int
