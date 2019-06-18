@@ -50,6 +50,7 @@ i386_init(void)
 
 	// Acquire the big kernel lock before waking up APs
 	// Your code here:
+	lock_kernel();
 
 	// Starting non-boot CPUs
 	boot_aps();
@@ -72,10 +73,6 @@ i386_init(void)
 	ENV_CREATE(user_hello, ENV_TYPE_USER);
 	ENV_CREATE(user_hello, ENV_TYPE_USER);
 #endif // TEST*
-
-	// Eliminar esta llamada una vez completada la parte 1
-	// e implementado sched_yield().
-	env_run(&envs[0]);
 
 	// Schedule and run the first user environment!
 	sched_yield();
@@ -131,6 +128,8 @@ mp_main(void)
 	// only one CPU can enter the scheduler at a time!
 	//
 	// Your code here:
+	lock_kernel();
+	sched_yield();
 
 	// Remove this after you finish Exercise 4
 	for (;;);

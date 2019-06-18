@@ -30,6 +30,33 @@ sched_yield(void)
 
 	// LAB 4: Your code here.
 
+	// This iterates starting from the current environment until the end of envs.
+	if (curenv) {
+		idle = curenv + 1;
+	} else {
+		idle = envs;
+	}
+
+	for (; idle < envs + NENV; idle++) {
+		if (idle->env_status == ENV_RUNNABLE) {
+			env_run(idle);
+			// Ends the loop.
+		}
+	}
+
+	// This iterates from the beginning of envs until the current environment.
+	idle = envs;
+	for (; idle < curenv; idle++) {
+		if (idle->env_status == ENV_RUNNABLE) {
+			env_run(idle);
+			// Ends the loop.
+		}
+	}
+
+	if (curenv && curenv->env_status == ENV_RUNNING) {
+		env_run(curenv);
+	}
+
 	// sched_halt never returns
 	sched_halt();
 }
