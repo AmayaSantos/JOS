@@ -71,21 +71,31 @@ bc_pgfault(struct UTrapframe *utf)
 
 // Flush the contents of the block containing VA out to disk if
 // necessary, then clear the PTE_D bit using sys_page_map.
-// If the block is not in the block cache or is not dirty, does
-// nothing.
 // Hint: Use va_is_mapped, va_is_dirty, and ide_write.
 // Hint: Use the PTE_SYSCALL constant when calling sys_page_map.
-// Hint: Don't forget to round addr down.
 void
 flush_block(void *addr)
 {
+	int r;
+
+	// Hint: Don't forget to round addr down.
+	addr = ROUNDDOWN(addr, PGSIZE);
+
 	uint32_t blockno = ((uint32_t) addr - DISKMAP) / BLKSIZE;
 
 	if (addr < (void *) DISKMAP || addr >= (void *) (DISKMAP + DISKSIZE))
 		panic("flush_block of bad va %08x", addr);
 
-	// LAB 5: Your code here.
-	panic("flush_block not implemented");
+	// If the block is not in the block cache or is not dirty, does
+	// nothing.
+	if (!va_is_mapped(addr) || !va_is_dirty(addr))
+		return;
+
+	if ((r = ide_write(blockno * BLKSECTS, addr, BLKSECTS)) < 0)
+		panic("flush_block: ide_write %d", r);
+
+	if ((r = sys_page_map(0, addr, 0, addr, uvpt[PGNUM(addr)] & PTE_SYSCALL))<0)
+		panic("in flush_block, sys_page_map: %e", r);
 }
 
 // Test that the block cache works, by smashing the superblock and
