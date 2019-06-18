@@ -16,6 +16,9 @@ header-includes: |
  \renewenvironment{Shaded}{\begin{leftbar_mod}\begin{oldshaded}}{\end{oldshaded}\end{leftbar_mod}}
     \let\oldverbatim\verbatim
  \renewenvironment{verbatim}{\begin{leftbar_mod}\begin{oldverbatim}}{\end{oldverbatim}\end{leftbar_mod}}
+ \hypersetup { colorlinks = true, urlcolor = blue }
+ \usepackage{caption}
+ \captionsetup[figure]{labelformat=empty} 
 include-before: |
  \renewcommand{\texttt}[1]{\OldTexttt{\color{magenta}{#1}}}
 ---
@@ -28,7 +31,7 @@ Respuestas teóricas de los distintos trabajos prácticos/labs de Sistemas Opera
 
 ### Memoria física: boot_alloc_pos
 
-1. Inlcuir: Un cálculo manual de la primera dirección de memoria que devolverá `boot_alloc()` tras el arranque. Se puede calcular a partir del binario compilado (obj/kern/kernel), usando los comandos `readelf` y/o `nm` y operaciones matemáticas.
+1. Incluir: Un cálculo manual de la primera dirección de memoria que devolverá `boot_alloc()` tras el arranque. Se puede calcular a partir del binario compilado (obj/kern/kernel), usando los comandos `readelf` y/o `nm` y operaciones matemáticas.
 
 Truncando la salida de ambos comandos (con `grep`), vemos las siguientes lineas:
 
@@ -427,3 +430,370 @@ TRAP frame at 0xf01c1000
 [00001000] free env 00001000
 Destroyed the only environment - nothing more to do!
 ```
+
+## TP3: Multitarea con desalojo (14/06/2019)
+
+### Múltiples CPUs: static_assert
+
+1. Responder: ¿cómo y por qué funciona la macro `static_assert` que define JOS?
+
+`static_assert` (presente en la biblioteca `assert.h`) es un macro de C introducido en 2011 por el standard C11. Lo único que hace el macro es expandir la keyword `_Static_assert`, que evalua en tiempo de compilación frente al 0. De ser la expresión evaluada igual a 0, es falsa, y se lanza un error de compilación. De ser distinto a 0, es verdadera, y todo sigue su rumbo normalmente.
+
+Lo que hace JOS es incluir su propia versión modificada de `assert.h`, redefiniendo el macro `static_assert`. En vez de expandir a `_Static_assert`, JOS provee su propia implementación:
+
+```c
+#define static_assert(x)	switch (x) case 0: case (x):
+```
+
+Esta implementación logra la misma funcionalidad, partiendo de la idea de que un switch no puede tener definido dos veces el mismo caso (se generaría `error: duplicate case value`). Entonces, de ser x igual a cero, se estaría teniendo un switch con dos veces el mismo caso (el cero) definido, resultando en un error de compilación.
+
+### Planificador y múltiples procesos: env_return
+
+1. Responder: al terminar un proceso su función `umain()` ¿dónde retoma la ejecución el kernel? Describir la secuencia de llamadas desde que termina `umain()` hasta que el kernel dispone del proceso.
+
+Analizando el ELF de un proceso (en este caso `/user/hello`) con el comando `readelf` y luego leyendo sus instrucciones en assembly, se puede ver (viendo la llamada que hace `libmain` pasada la llamada a `umain`) que la secuencia de instrucciones luego de llamar a `umain` consiste en llamar a `exit` (includo en `/lib/exit.c`). Siendo que `exit` la provee JOS, se puede seguir la traza en el código de JOS (y no en assembly).
+ 
+ Lo que hace JOS en `exit` es llamar a `sys_env_destroy` (la syscall que provee para destruir procesos, en `/lib/syscall.c`), que no es más que un wrapper a `syscall(SYS_env_destroy, 1, envid, 0, 0, 0, 0);`. Esto llamará a `env_destroy`, quien llama a `sched_yield` y se finaliza en `sched_halt`. 
+ 
+2. Responder: ¿en qué cambia la función `env_destroy()` en este TP, respecto al TP anterior?
+
+El TP previo contenía el siguiente `env_destroy()`:
+
+```c
+void
+env_destroy(struct Env *e)
+{
+	env_free(e);
+
+	cprintf("Destroyed the only environment - nothing more to do!\n");
+	while (1)
+		monitor(NULL);
+}
+``` 
+
+La diferencia con el TP actual reside en que ahora tenemos soporte para múltiples CPUs y un scheduler de procesos. Entonces, hay que preguntarse si el entorno a destruir es el que esta corriendo en esta CPU o si esta corriendo en otras. Si esta corriendo en la CPU actual, entonces luego de ser liberado habrá que llamar al scheduler para conseguir el siguiente entorno a ejecutar. De estar corriendo en otra CPU, no se llama a `env_free`, si no que solamente se lo marca como un proceso zombie (`ENV_DYING`), para que la próxima vez que aparezca en el kernel sea liberado.
+
+### Planificador y múltiples procesos: sys_yield
+
+1. Leer y estudiar el código del programa `user/yield.c`. Cambiar la función `i386_init()` para lanzar tres instancias de dicho programa, y mostrar y explicar la salida de `make qemu-nox`.
+
+El código de `yield.c` es:
+
+```c
+#include <inc/lib.h>
+
+void
+umain(int argc, char **argv)
+{
+	int i;
+
+	cprintf("Hello, I am environment %08x.\n", thisenv->env_id);
+	for (i = 0; i < 5; i++) {
+		sys_yield();
+		cprintf("Back in environment %08x, iteration %d.\n",
+			thisenv->env_id, i);
+	}
+	cprintf("All done in environment %08x.\n", thisenv->env_id);
+}
+```
+
+Este código  entra a un ciclo de 5 iteraciones donde llama a `sys_yield` (que es solamente una llamada al scheduler Round Robin, en `sched_yield`).
+
+La modificación a `i386_init` es:
+
+```c
+ENV_CREATE(user_yield, ENV_TYPE_USER);
+ENV_CREATE(user_yield, ENV_TYPE_USER);
+ENV_CREATE(user_yield, ENV_TYPE_USER);
+``` 
+
+La salida de `make qemu-nox` es:
+
+```c
+[00000000] new env 00001000
+[00000000] new env 00001001
+[00000000] new env 00001002
+Hello, I am environment 00001000.
+Hello, I am environment 00001001.
+Hello, I am environment 00001002.
+Back in environment 00001000, iteration 0.
+Back in environment 00001001, iteration 0.
+Back in environment 00001002, iteration 0.
+Back in environment 00001000, iteration 1.
+Back in environment 00001001, iteration 1.
+Back in environment 00001002, iteration 1.
+Back in environment 00001000, iteration 2.
+Back in environment 00001001, iteration 2.
+Back in environment 00001002, iteration 2.
+Back in environment 00001000, iteration 3.
+Back in environment 00001001, iteration 3.
+Back in environment 00001002, iteration 3.
+Back in environment 00001000, iteration 4.
+All done in environment 00001000.
+[00001000] exiting gracefully
+[00001000] free env 00001000
+Back in environment 00001001, iteration 4.
+All done in environment 00001001.
+[00001001] exiting gracefully
+[00001001] free env 00001001
+Back in environment 00001002, iteration 4.
+All done in environment 00001002.
+[00001002] exiting gracefully
+[00001002] free env 00001002
+```
+
+Esta salida es un perfecto test para el scheduler. Como se puede ver, los procesos (que se van desalojando a sí mismo) le entregan el poder al scheduler, y al ser un Round Robin entre tres procesos iguales, la distribución de tiempo es enteramente justa (fair) y circular. Se corre el proceso 0, en su primera iteración, luego el proceso 1, en su primera iteración, luego el tercer proceso en su primera iteracion y así hasta completar las 5 iteraciones de los 3 procesos. 
+
+La secuencia de instrucciones es, básicamente, la siguiente imagen: 
+
+![Round Robin, [Operating Systems: Three Easy Pieces, Chapter 7, Arpaci-Dusseau]((http://pages.cs.wisc.edu/~remzi/OSTEP/))](roundrobin.png){width=350px}
+
+### Creación dinámica de procesos: envid2env
+
+1. Responder: ¿qué ocurre en JOS, si un proceso llama a `sys_env_destroy(0)`?
+
+El comentario (`// If envid is zero, return the current environment.`) dentro de la definición de `envid2env` es muy claro: Si se recibe 0, se entiende como el entorno actual. Como `sys_env_destroy` llama con ese parametro a `envid2env`, entonces con esta llamada se destruye el entorno actual.
+
+2. Responder: ¿qué ocurre en Linux, si un proceso llama a `kill(0, 9)`?
+
+El manual de la syscall kill (con `man 2 kill`) explica que el primer parametro recibido es el `pid` y el segundo la señal a enviar. También dice: `If pid equals 0, then sig is sent to every process in the process group of the calling process.`. También (con `man 7 signal`) se nota que la señal 9 es `SIGKILL`, una señal para forzar la terminación de un proceso.
+
+`kill(0,9)` destruye todos los procesos del process group (del proceso que llamo a `kill`).
+ 
+3. Responder: ¿qué ocurre en JOS, si un proceso llama a `sys_env_destroy(-1)`?
+
+`envid2env` sabe cual es el entorno porque hace `e = &envs[ENVX(envid)];` (siendo `ENVX` la función (macro) que devuelve el offset del entorno en el arreglo `envs`, `#define ENVX(envid)		((envid) & (NENV - 1))`). Es con la definición de `ENVX` que se nota que si se recibe -1, se devolvera el offset `NENV-1`, que equivale al último elemento del arreglo. La llamada `sys_env_destroy(-1)` destruye el entorno en la última posicion de `envs`.
+
+4. Responder: ¿qué ocurre en Linux, si un proceso llama a `kill(-1, 9)`?
+
+El manual de la syscall también dice `If  pid  equals  -1,  then  sig  is sent to every process for which the calling process has permission to send signals, except for process 1 (init)`. Entonces, `kill(-1,9)` destruye todos los procesos a los que el proceso que llamo a `kill` puede alcanzar (por sus permisos). 
+
+### Creación dinámica de procesos: dumbfork
+
+1. Responder: Si, antes de llamar a `dumbfork()`, el proceso se reserva a sí mismo una página con sys_page_alloc() ¿se propagará una copia al proceso hijo? ¿Por qué?
+
+La propagación, que ocurre en la función `duppage`, sucede solamente si la dirección de la página entra en el ciclo `for (addr = (uint8_t*) UTEXT; addr < end; addr += PGSIZE)` (como dice el comentario de `dumbfork`, la copia es `eagerly` (ansiosa))
+
+2. Responder: ¿Se preserva el estado de solo-lectura en las páginas copiadas? Mostrar, con código en espacio de usuario, cómo saber si una dirección de memoria es modificable por el proceso, o no. (Ayuda: usar las variables globales uvpd y/o uvpt.)
+
+El estado de solo lectura no se preserva ya que `sys_page_alloc()` (dentro de `duppage()`) se llama con permiso de escritura (`PTE_P|PTE_U|PTE_W`). Un posible código para saber si una dirección de memoria es modificable es:
+
+```c
+pde_t pde = uvpd[PDX(addr)];
+if (!p (pde & PTE_P)){
+	continue;
+}
+pte_t pte = uvpt[PGNUM(addr)];
+int perm = pte & PTE_W;
+```
+
+3. Describir el funcionamiento de la función `duppage()`.
+
+`duppage()` llama a `sys_page_alloc()` para asignar a la dirección de destino una nueva página con permisos de escritura, luego llama a `sys_page_map()` para enlazar la página ubicada en la dirección de destino en `UTEMP` (así se evita la verificación de permisos). Finalmente restaura el estado original (llamando a `sys_page_unmap()` sobre `UTEMP`).
+
+4. Supongamos que se añade a duppage() un argumento booleano que indica si la página debe quedar como solo-lectura en el proceso hijo:
+
+  * Indicar qué llamada adicional se debería hacer si el booleano es true
+  
+  Si quisiesemos mantener la página en solo lectura en el proceso hijo, haría falta un nuevo llamado a `sys_page_map()` quitando el permiso de escritura.
+
+  * Describir un algoritmo alternativo que no aumente el número de llamadas al sistema, que debe quedar en 3 (1 × alloc, 1 × map, 1 × unmap).
+
+  Una manera de mantener los llamados al sistema puede ser modificando los permisos que recibe `sys_page_alloc()` (esta vez queremos que solo reciba `PTE_P | PTE_U`). Siendo que depende de una variable booleana, con un operador ternario se puede lograr lo deseado.
+
+5. Responder: ¿Por qué se usa ROUNDDOWN(&addr) para copiar el stack? ¿Qué es addr y por qué, si el stack crece hacia abajo, se usa ROUNDDOWN y no ROUNDUP?
+
+Como `addr` es una variable local definida en la función misma (en vez de venir del heap), vive en el stack del proceso (padre). `ROUNDDOWN` sobre esta variable mostrará entonces el 'techo' del stack. Entonces, queremos copiar desde este techo hasta el comienzo del stack. 
+
+Como estamos copiando sobre el stack, de manera 'invertida', estamos copiando desde el piso del stack (al cual lelgamos con `ROUNDDOWN`) hasta el comienzo de este.
+
+### Ejecución en paralelo: multicore_init
+
+1. Responder: ¿Qué código copia, y a dónde, la siguiente línea de la función boot_aps()? `memmove(code, mpentry_start, mpentry_end - mpentry_start);`
+
+La linea copia el código que se encuentra en `kern/mpentry.S`, a la dirección virtual `0xf0007000`, que mapea a la dirección física `0x7000` (`MPENTRY_PADDR`).
+
+2. Responder: ¿Para qué se usa la variable global `mpentry_kstack`? ¿Qué ocurriría si el espacio para este stack se reservara en el archivo `kern/mpentry.S`, de manera similar a `bootstack` en el archivo `kern/entry.S`?
+   
+Se utiliza porque cada CPU va a apuntar a un stack distinto. Si se reservara al igual que `bootstack`, entonces los stacks de cada CPU apuntarían a la misma memoria.
+
+3. Cuando QEMU corre con múltiples CPUs, éstas se muestran en GDB como hilos de ejecución separados. Mostrar una sesión de GDB en la que se muestre cómo va cambiando el valor de la variable global `mpentry_kstack`:
+
+```asm
+(gdb) watch mpentry_kstack
+Hardware watchpoint 1: mpentry_kstack
+(gdb) c
+Continuando.
+Se asume que la arquitectura objetivo es i386
+=> 0xf0100195 <boot_aps+140>:	mov    %esi,%ecx
+
+Thread 1 hit Hardware watchpoint 1: mpentry_kstack
+
+Old value = (void *) 0x0
+New value = (void *) 0xf0247000 <percpu_kstacks+65536>
+boot_aps () at kern/init.c:106
+106			lapic_startap(c->cpu_id, PADDR(code));
+(gdb) bt
+#0  boot_aps () at kern/init.c:106
+#1  0xf010021e in i386_init () at kern/init.c:55
+#2  0xf0100049 in relocated () at kern/entry.S:86
+(gdb) info threads
+  Id   Target Id         Frame 
+* 1    Thread 1 (CPU#0 [running]) boot_aps () at kern/init.c:106
+  2    Thread 2 (CPU#1 [halted ]) 0x000fd412 in ?? ()
+  3    Thread 3 (CPU#2 [halted ]) 0x000fd412 in ?? ()
+  4    Thread 4 (CPU#3 [halted ]) 0x000fd412 in ?? ()
+(gdb) c
+Continuando.
+=> 0xf0100195 <boot_aps+140>:	mov    %esi,%ecx
+
+Thread 1 hit Hardware watchpoint 1: mpentry_kstack
+
+Old value = (void *) 0xf0247000 <percpu_kstacks+65536>
+New value = (void *) 0xf024f000 <percpu_kstacks+98304>
+boot_aps () at kern/init.c:106
+106			lapic_startap(c->cpu_id, PADDR(code));
+(gdb) info threads
+  Id   Target Id         Frame 
+* 1    Thread 1 (CPU#0 [running]) boot_aps () at kern/init.c:106
+  2    Thread 2 (CPU#1 [running]) 0xf01002ac in mp_main () at kern/init.c:124
+  3    Thread 3 (CPU#2 [halted ]) 0x000fd412 in ?? ()
+  4    Thread 4 (CPU#3 [halted ]) 0x000fd412 in ?? ()
+(gdb) thread 2
+[Switching to thread 2 (Thread 2)]
+#0  0xf01002ac in mp_main () at kern/init.c:124
+124		xchg(&thiscpu->cpu_status, CPU_STARTED); // tell boot_aps() we're up
+(gdb) bt
+#0  0xf01002ac in mp_main () at kern/init.c:124
+#1  0x00007062 in ?? ()
+(gdb) p cpunum()
+Could not fetch register "orig_eax"; remote failure reply 'E14'
+(gdb) thread 1
+[Switching to thread 1 (Thread 1)]
+#0  boot_aps () at kern/init.c:106
+106			lapic_startap(c->cpu_id, PADDR(code));
+(gdb) p cpunum()
+Could not fetch register "orig_eax"; remote failure reply 'E14'
+(gdb) c
+Continuando.
+=> 0xf0100195 <boot_aps+140>:	mov    %esi,%ecx
+
+Thread 1 hit Hardware watchpoint 1: mpentry_kstack
+
+Old value = (void *) 0xf024f000 <percpu_kstacks+98304>
+New value = (void *) 0xf0257000 <percpu_kstacks+131072>
+boot_aps () at kern/init.c:106
+106			lapic_startap(c->cpu_id, PADDR(code));
+(gdb) info threads
+  Id   Target Id         Frame 
+* 1    Thread 1 (CPU#0 [running]) boot_aps () at kern/init.c:106
+  2    Thread 2 (CPU#1 [running]) 0xf01002ac in mp_main () at kern/init.c:124
+  3    Thread 3 (CPU#2 [running]) 0xf01002ac in mp_main () at kern/init.c:124
+  4    Thread 4 (CPU#3 [halted ]) 0x000fd412 in ?? ()
+(gdb) bt
+#0  boot_aps () at kern/init.c:106
+#1  0xf010021e in i386_init () at kern/init.c:55
+#2  0xf0100049 in relocated () at kern/entry.S:86
+(gdb) thread 3
+[Switching to thread 3 (Thread 3)]
+#0  0xf01002ac in mp_main () at kern/init.c:124
+124		xchg(&thiscpu->cpu_status, CPU_STARTED); // tell boot_aps() we're up
+(gdb) p cpunum()
+Could not fetch register "orig_eax"; remote failure reply 'E14'
+(gdb) c
+Continuando.
+```
+
+4. Responder: ¿Qué valor tendrá el registro `%eip` cuando se ejecute la línea `movl $(RELOC(entry_pgdir)), %eax` de `kern/mpentry.S`? ¿Se detiene en algún momento la ejecución si se pone un breakpoint en mpentry_start? ¿Por qué?
+
+Redondeada a 12 bits, el `%eip` apuntará a la región de memoria `0x7000` (`MPENTRY_PADDR`), ya que todo el bloque de código (mucho menor a una página) de `mpentry.S` se mapeó allí.
+
+La ejecución no se detiene al poner in breakpoint en `mpentry_start` porque el registro `%eip` nunca llega a pasar por esa dirección, ya que el código ese se mapeó a 0.
+    
+5. Con GDB, mostrar el valor exacto de `%eip` y `mpentry_kstack` cuando se ejecuta la instrucción anterior en el último AP.
+
+```asm
+(gdb) b *0x7000 thread 4
+Punto de interrupción 1 at 0x7000
+(gdb) c
+Continuando.
+
+Thread 2 received signal SIGTRAP, Trace/breakpoint trap.
+[Cambiando a Thread 2]
+Se asume que la arquitectura objetivo es i8086
+[ 700:   0]    0x7000:	cli    
+0x00000000 in ?? ()
+(gdb) disable 1
+(gdb) si 10
+Se asume que la arquitectura objetivo es i386
+=> 0x7020:	mov    $0x10,%ax
+0x00007020 in ?? ()
+(gdb) x10i $eip
+orden indefinida: «x10i». Intente con «help»
+(gdb) x/10i $eip
+=> 0x7020:	mov    $0x10,%ax
+   0x7024:	mov    %eax,%ds
+   0x7026:	mov    %eax,%es
+   0x7028:	mov    %eax,%ss
+   0x702a:	mov    $0x0,%ax
+   0x702e:	mov    %eax,%fs
+   0x7030:	mov    %eax,%gs
+   0x7032:	mov    $0x11f000,%eax
+   0x7037:	mov    %eax,%cr3
+   0x703a:	mov    %cr4,%eax
+(gdb) watch $eax == 0x11f000
+Watchpoint 2: $eax == 0x11f000
+(gdb) c
+Continuando.
+=> 0x7037:	mov    %eax,%cr3
+
+Thread 2 hit Watchpoint 2: $eax == 0x11f000
+
+Old value = 0
+New value = 1
+0x00007037 in ?? ()
+(gdb) p $eip
+$1 = (void (*)()) 0x7037
+(gdb)  p mpentry_kstack
+$2 = (void *) 0x0
+```
+
+### Comunicación entre procesos: ipc_recv
+
+1. Un proceso podría intentar enviar el valor númerico `-E_INVAL` vía `ipc_send()`. Se completan las condiciones de los  `if` de ambas versiones del siguiente código para detectar correctamente los errores 
+
+```c
+// Versión A
+envid_t src = -1;
+int r = ipc_recv(&src, 0, NULL);
+
+if (r < 0)
+  if (src == 0) // Comentario en ipc_recv: If the system call fails, then store 0 in *fromenv
+                // Solo basta con verificar que le sucedio al puntero del primer parametro (fromenv)
+    puts("Hubo error.");
+  else
+    puts("Valor negativo correcto.")
+
+// Versión B
+int r = ipc_recv(NULL, 0, NULL);
+
+if (r < 0)
+  if (/* ??? */) // No hay manera de detectar el error. 
+                 // La función recibe NULL tanto en fromenv como perm_store,
+                 //     haciendo que no haya puntero contra el cual verificar
+    puts("Hubo error.");
+  else
+	puts("Valor negativo correcto.")
+```
+
+### Comunicación entre procesos: sys_ipc_try_send
+
+1. Responder: ¿Cómo se podría hacer bloqueante la llamada a `sys_ipc_try_send()`? Esto es: qué estrategia de implementación se podría usar para que, si un proceso A intenta a enviar a B, pero B no está esperando un mensaje, el proceso A sea puesto en estado ENV_NOT_RUNNABLE, y sea despertado una vez B llame a ipc_recv().
+
+Si el entorno B no esta esperando un mensaje (que se puede verificar con un `if` sobre el atributo `env_ipc_recving`), se pasa al entorno actual al estado `ENV_NOT_RUNNABLE`. Luego, cuando el entorno B sea quien llame a `sys_ipc_recv` deberá tener una referencia a A para recuperar el estado de `ENV_RUNNABLE` (esto se puede lograr almacenando una lista de los entornos de los cuales se esperan mensajes, que puede ser actualizada en el primer llamado). 
+
+### Copy-on-write fork : fork
+
+1. Responder: ¿Puede reservarse memoria para la pila de excepciones del hijo, e instalar su manejador de excepciones, con la función `set_pgfault_handler()`? De no poderse, ¿cómo llega al hijo el valor correcto de la variable global `_pgfault_handler`?
+
+No es posible reservar memoria para el hijo con `set_pgfault_handler()` porque esta lo hace para el entorno actual (el padre). La manera correcta sería que la función reciba también el id del entorno. A la variable `_pgfault_handler` se llega por ser `_pgfault_upcall` una variable de tipo `extern` (accesible desde todos lados). 
