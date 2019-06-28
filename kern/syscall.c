@@ -259,12 +259,12 @@ sys_page_map(envid_t srcenvid, void *srcva, envid_t dstenvid, void *dstva, int p
 	struct PageInfo *p;
 	pte_t *pte;
 
-	if ((envid2env(srcenvid, &srce, 1)) < 0) {
+	if ((envid2env(srcenvid, &srce, 0)) < 0) {
 		cprintf("sys_page_map. fails: %d (-E_BAD_ENV)\n", -E_BAD_ENV);
 		return -E_BAD_ENV;
 	}
 
-	if ((envid2env(dstenvid, &dste, 1)) < 0) {
+	if ((envid2env(dstenvid, &dste, 0)) < 0) {
 		cprintf("sys_page_map. 1 fails: %d (-E_BAD_ENV)\n", -E_BAD_ENV);
 		return -E_BAD_ENV;
 	}
@@ -329,7 +329,6 @@ sys_page_unmap(envid_t envid, void *va)
 	}
 
 	page_remove(e->env_pgdir, va);
-
 	return 0;
 }
 
@@ -409,16 +408,10 @@ sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 		return -E_INVAL;
 	}
 
-	if ((perm & PTE_W) == PTE_W && (PGOFF(*pte) & PTE_W) != PTE_W) {
-		cprintf("%x - %x\n", perm, PGOFF(*pte));
-		cprintf("sys_ipc_try_send. 4 fails: %d (-E_INVAL)\n", -E_INVAL);
-		return -E_INVAL;
-	}
-
-	if ((int) e->env_ipc_dstva < UTOP) {
-		if ((page_insert(e->env_pgdir, p, e->env_ipc_dstva, perm)) < 0) {
-			cprintf("sys_ipc_try_send. fails: %d (-E_NO_MEM)\n", -E_NO_MEM);
-			return -E_NO_MEM;
+	if(srcva < (void*)UTOP){
+		int val = sys_page_map(curenv->env_id, srcva, e->env_id, e->env_ipc_dstva, perm);
+		if(val< 0){
+			return val;
 		}
 	}
 
@@ -426,7 +419,6 @@ sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 	e->env_ipc_from = curenv->env_id;
 	e->env_ipc_value = value;
 	e->env_ipc_perm = perm;
-
 	e->env_status = ENV_RUNNABLE;
 
 	return 0;
