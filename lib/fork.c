@@ -68,8 +68,7 @@ pgfault(struct UTrapframe *utf)
 // It is also OK to panic on error.
 //
 static int
-duppage(envid_t envid, unsigned pn)
-{
+duppage(envid_t envid, unsigned pn) {
 	void *va = (void *) (pn * PGSIZE);
 	int r;
 
@@ -77,12 +76,13 @@ duppage(envid_t envid, unsigned pn)
 	pte_t pte = uvpt[pn];
 	int perm = pte & (PTE_COW | PTE_SYSCALL);
 
-	if((perm & PTE_W) || (perm & PTE_COW)){
+	// '''' pte_share
+ 	if (!(perm & PTE_SHARE) && ((perm & PTE_W) || (perm & PTE_COW))) {
 		perm &= ~PTE_W;
 		perm = perm | PTE_COW;
 	}
 
-	if((r = sys_page_map(sys_getenvid(), va, envid, va, perm)) < 0) {
+	if ((r = sys_page_map(sys_getenvid(), va, envid, va, perm)) < 0) {
 		panic("duppage: sys_page_map failed for env_id=%d. Exit code %d (check error.h)", sys_getenvid(), r);
 	}
 

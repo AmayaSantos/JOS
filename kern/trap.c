@@ -93,6 +93,9 @@ trap_init(void)
 	void trap_handler19();
 
 	void trap_handler32();
+	// '''' kbd_interrupt
+	void trap_handler33();
+	void trap_handler36();
 
 	void trap_handler48();
 
@@ -119,6 +122,9 @@ trap_init(void)
 
 	// INTERRUPTS
 	SETGATE(idt[IRQ_OFFSET + IRQ_TIMER], 0, GD_KT, trap_handler32, 3);
+	// '''' kbd_interrupt
+	SETGATE(idt[IRQ_OFFSET + IRQ_KBD], 0, GD_KT, trap_handler32, 3);
+	SETGATE(idt[IRQ_OFFSET + IRQ_SERIAL], 0, GD_KT, trap_handler32, 3);
 
 	// SYSCALL
 	SETGATE(idt[T_SYSCALL], 0, GD_KT, trap_handler48, 3);
