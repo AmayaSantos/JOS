@@ -56,7 +56,6 @@ again:
 
 			// LAB 5: Your code here.
 			// '''' sh_redir
-			open(t, O_RDONLY);
 			if ((fd = open(t, O_RDONLY)) < 0) {
 				panic("open %s: %e", t, fd);
 			}
@@ -66,7 +65,6 @@ again:
 				close(fd);
 			}
 
-			panic("< redirection not implemented");
 			break;
 
 		case '>':  // Output redirection

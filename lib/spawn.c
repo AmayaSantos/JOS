@@ -323,15 +323,6 @@ static int
 copy_shared_pages(envid_t child)
 {
 	// LAB 5: Your code here.
-	// '''' pte_share
-	// !!!!
-	/*
-	int r;
-
-	if ((r = sys_page_map(sys_getenvid(), va, envid, va, perm)) < 0) {
-		panic("copy_shared_pages: sys_page_map failed for env_id=%d. Exit code %d (check error.h)", sys_getenvid(), r);
-	}
-*/
 	int r;
 	uint8_t *addr;
 

@@ -40,13 +40,13 @@ pgfault(struct UTrapframe *utf)
 	//   You should make three system calls.
 
 	// LAB 4: Your code here.
-	if ((r = sys_page_alloc(sys_getenvid(), PFTEMP, PTE_SYSCALL)) < 0) {
+	if ((r = sys_page_alloc(sys_getenvid(), PFTEMP, PTE_U|PTE_W|PTE_P)) < 0) {
 		panic("pgfault: sys_page_alloc failed for env_id=%d. Exit code %d (check error.h)", sys_getenvid(), r);
 	}
 
 	memmove(PFTEMP, ROUNDDOWN(addr,PGSIZE), PGSIZE);
 
-	if ((r = sys_page_map(sys_getenvid(), PFTEMP, sys_getenvid(), ROUNDDOWN(addr,PGSIZE), PTE_SYSCALL)) < 0) {
+	if ((r = sys_page_map(sys_getenvid(), PFTEMP, sys_getenvid(), ROUNDDOWN(addr,PGSIZE), PTE_U|PTE_W|PTE_P)) < 0) {
 		panic("pgfault: sys_page_map: failed for env_id=%d. Exit code %d (check error.h)", sys_getenvid(), r);
 	}
 

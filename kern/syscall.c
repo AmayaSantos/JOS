@@ -163,8 +163,7 @@ sys_env_set_trapframe(envid_t envid, struct Trapframe *tf)
 	e->env_tf.tf_eflags |= FL_IF;
 	e->env_tf.tf_eflags &= ~FL_IOPL_MASK;
 
-
-	panic("sys_env_set_trapframe not implemented");
+	return 0;
 }
 
 // Set the page fault upcall for 'envid' by modifying the corresponding struct
@@ -402,35 +401,44 @@ sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 		return -E_BAD_ENV;
 	}
 
-	// If fails, set env_ipc_perm to 0.
-	e->env_ipc_perm = 0;
-
 	if (!e->env_ipc_recving) {
 		return -E_IPC_NOT_RECV;
 	}
 
-	if ((int) srcva < UTOP && (int) srcva % PGSIZE != 0) {
-		cprintf("sys_ipc_try_send. 1 fails: %d (-E_INVAL)\n", -E_INVAL);
-		return -E_INVAL;
-	}
+	if ((int) srcva < UTOP) {
 
-	// Repeated in page_alloc.
-	if ((int) srcva < UTOP && ((PTE_P & perm) == 0 || (PTE_U & perm) == 0 ||
-		(PTE_SYSCALL & perm) != perm)) {
-		cprintf("%x - %x\n", perm, PTE_SYSCALL);
-		cprintf("sys_ipc_try_send. 2 fails: %d (-E_INVAL)\n", -E_INVAL);
-		return -E_INVAL;
-	}
+		if ((int) srcva % PGSIZE != 0) {
+			cprintf("sys_ipc_try_send. 1 fails: %d (-E_INVAL)\n", -E_INVAL);
+			return -E_INVAL;
+		}
 
-	if ((int) srcva < UTOP && (p = page_lookup(curenv->env_pgdir, srcva, &pte)) == NULL) {
-		cprintf("sys_ipc_try_send. 3 fails: %d (-E_INVAL)\n", -E_INVAL);
-		return -E_INVAL;
-	}
+		// Repeated in page_alloc.
+		if ((PTE_P & perm) == 0 || (PTE_U & perm) == 0 ||
+								   (PTE_SYSCALL & perm) != perm) {
+			cprintf("%x - %x\n", perm, PTE_SYSCALL);
+			cprintf("sys_ipc_try_send. 2 fails: %d (-E_INVAL)\n", -E_INVAL);
+			return -E_INVAL;
+		}
 
-	if(srcva < (void*)UTOP){
-		int val = sys_page_map(curenv->env_id, srcva, e->env_id, e->env_ipc_dstva, perm);
-		if(val< 0){
-			return val;
+		if ((p = page_lookup(curenv->env_pgdir, srcva, &pte)) == NULL) {
+			cprintf("sys_ipc_try_send. 3 fails: %d (-E_INVAL)\n", -E_INVAL);
+			return -E_INVAL;
+		}
+
+		if ((perm & PTE_W) == PTE_W && (PGOFF(*pte) & PTE_W) != PTE_W) {
+			cprintf("%x - %x\n", perm, PGOFF(*pte));
+			cprintf("sys_ipc_try_send. 4 fails: %d (-E_INVAL)\n", -E_INVAL);
+			return -E_INVAL;
+		}
+
+		if ((int) e->env_ipc_dstva < UTOP) {
+			// If fails, set env_ipc_perm to 0.
+			e->env_ipc_perm = 0;
+
+			if ((page_insert(e->env_pgdir, p, e->env_ipc_dstva, perm)) < 0) {
+				cprintf("sys_ipc_try_send. fails: %d (-E_NO_MEM)\n", -E_NO_MEM);
+				return -E_NO_MEM;
+			}
 		}
 	}
 
