@@ -323,5 +323,23 @@ static int
 copy_shared_pages(envid_t child)
 {
 	// LAB 5: Your code here.
+	int r;
+	uint8_t *addr;
+
+	for (addr = 0; (int) addr < UTOP; addr += PGSIZE) {
+
+		if ((PGOFF(uvpd[PDX(addr)]) & PTE_P) != PTE_P) {
+			continue;
+		}
+
+		int perm = PGOFF(uvpt[PGNUM(addr)]);
+
+		if ((perm & PTE_P) == PTE_P && (perm & PTE_SHARE) == PTE_SHARE) {
+			if ((r = sys_page_map(sys_getenvid(), addr, child, addr, perm&PTE_SYSCALL)) < 0) {
+				panic("copy_shared_pages: sys_page_map failed for env_id=%d. Exit code %d (check error.h)", sys_getenvid(), r);
+			}
+		}
+	}
+
 	return 0;
 }

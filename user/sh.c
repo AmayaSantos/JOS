@@ -55,7 +55,16 @@ again:
 			// then close the original 'fd'.
 
 			// LAB 5: Your code here.
-			panic("< redirection not implemented");
+			// '''' sh_redir
+			if ((fd = open(t, O_RDONLY)) < 0) {
+				panic("open %s: %e", t, fd);
+			}
+
+			if (fd != 0) {
+				dup(fd, 0);
+				close(fd);
+			}
+
 			break;
 
 		case '>':  // Output redirection

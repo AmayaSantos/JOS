@@ -797,3 +797,11 @@ Si el entorno B no esta esperando un mensaje (que se puede verificar con un `if`
 1. Responder: ¿Puede reservarse memoria para la pila de excepciones del hijo, e instalar su manejador de excepciones, con la función `set_pgfault_handler()`? De no poderse, ¿cómo llega al hijo el valor correcto de la variable global `_pgfault_handler`?
 
 No es posible reservar memoria para el hijo con `set_pgfault_handler()` porque esta lo hace para el entorno actual (el padre). La manera correcta sería que la función reciba también el id del entorno. A la variable `_pgfault_handler` se llega por ser `_pgfault_upcall` una variable de tipo `extern` (accesible desde todos lados). 
+
+## TP4: Sistema de archivos e intérprete de comandos
+
+### Caché de bloques
+
+1. Responder: ¿Qué es `super->s_nblocks`?
+
+El atributo `s_nblocks` de la estructura `Super` (el super block) es el número total de bloques en el sismtema de archivos.

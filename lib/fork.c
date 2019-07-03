@@ -40,13 +40,13 @@ pgfault(struct UTrapframe *utf)
 	//   You should make three system calls.
 
 	// LAB 4: Your code here.
-	if ((r = sys_page_alloc(sys_getenvid(), PFTEMP, PTE_SYSCALL)) < 0) {
+	if ((r = sys_page_alloc(sys_getenvid(), PFTEMP, PTE_U|PTE_W|PTE_P)) < 0) {
 		panic("pgfault: sys_page_alloc failed for env_id=%d. Exit code %d (check error.h)", sys_getenvid(), r);
 	}
 
 	memmove(PFTEMP, ROUNDDOWN(addr,PGSIZE), PGSIZE);
 
-	if ((r = sys_page_map(sys_getenvid(), PFTEMP, sys_getenvid(), ROUNDDOWN(addr,PGSIZE), PTE_SYSCALL)) < 0) {
+	if ((r = sys_page_map(sys_getenvid(), PFTEMP, sys_getenvid(), ROUNDDOWN(addr,PGSIZE), PTE_U|PTE_W|PTE_P)) < 0) {
 		panic("pgfault: sys_page_map: failed for env_id=%d. Exit code %d (check error.h)", sys_getenvid(), r);
 	}
 
@@ -68,8 +68,7 @@ pgfault(struct UTrapframe *utf)
 // It is also OK to panic on error.
 //
 static int
-duppage(envid_t envid, unsigned pn)
-{
+duppage(envid_t envid, unsigned pn) {
 	void *va = (void *) (pn * PGSIZE);
 	int r;
 
@@ -77,12 +76,13 @@ duppage(envid_t envid, unsigned pn)
 	pte_t pte = uvpt[pn];
 	int perm = pte & (PTE_COW | PTE_SYSCALL);
 
-	if((perm & PTE_W) || (perm & PTE_COW)){
+	// '''' pte_share
+ 	if (!(perm & PTE_SHARE) && ((perm & PTE_W) || (perm & PTE_COW))) {
 		perm &= ~PTE_W;
 		perm = perm | PTE_COW;
 	}
 
-	if((r = sys_page_map(sys_getenvid(), va, envid, va, perm)) < 0) {
+	if ((r = sys_page_map(sys_getenvid(), va, envid, va, perm)) < 0) {
 		panic("duppage: sys_page_map failed for env_id=%d. Exit code %d (check error.h)", sys_getenvid(), r);
 	}
 
