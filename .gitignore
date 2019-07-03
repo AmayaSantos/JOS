@@ -10,9 +10,10 @@
 /qemu.out
 /qemu.log
 /gradelib.pyc
-/lab?-handin.tar.gz
+/lab*-handin.tar.gz
 /lab?/
 /sol?/
 /myapi.key
 .idea/
 __pycache__/
+/.suf
